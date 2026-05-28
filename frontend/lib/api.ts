@@ -161,3 +161,10 @@ export async function redeemMutualFund(assetId: string, units: number) {
     { units },
   );
 }
+
+export async function topUpSavings(assetId: string, amount: number) {
+  return post<{ asset_id: string; new_principal: number }>(
+    `/assets/${assetId}/top-up`,
+    { amount },
+  );
+}
