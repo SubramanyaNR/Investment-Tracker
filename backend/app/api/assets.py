@@ -10,7 +10,7 @@ from app.services.fixed_income import compound_value
 
 router = APIRouter()
 
-FI_TYPES = {"FD", "RD", "PPF"}
+FI_TYPES = {"FD", "RD", "PPF", "SAVINGS_ACC"}
 
 
 class AssetCreate(BaseModel):
@@ -435,3 +435,42 @@ async def redeem_mf(asset_id: str, payload: MFRedeemRequest, session=Depends(get
     await session.commit()
 
     return {"asset_id": asset_id, "remaining_units": float(holding.units)}
+
+
+class TopUpRequest(BaseModel):
+    amount: Decimal
+
+
+@router.post("/assets/{asset_id}/top-up")
+async def top_up_savings(asset_id: str, payload: TopUpRequest, session=Depends(get_session)):
+    asset_result = await session.execute(select(Asset).where(Asset.id == asset_id))
+    asset = asset_result.scalar_one_or_none()
+    if not asset or asset.asset_type != "SAVINGS_ACC":
+        raise HTTPException(status_code=404, detail="Savings account not found")
+    if payload.amount <= 0:
+        raise HTTPException(status_code=400, detail="Top-up amount must be positive")
+
+    fi_result = await session.execute(
+        select(FixedIncomeHolding).where(FixedIncomeHolding.asset_id == asset_id)
+    )
+    holding = fi_result.scalar_one_or_none()
+    if not holding:
+        raise HTTPException(status_code=404, detail="Holding record not found")
+
+    holding.principal = holding.principal + payload.amount
+    new_principal = Decimal(str(holding.principal))
+
+    session.add(Transaction(
+        asset_id=asset_id,
+        transaction_type="DEPOSIT",
+        transaction_date=date.today(),
+        amount=payload.amount,
+        units=None,
+        price_per_unit=None,
+    ))
+
+    fi_current = compound_value(new_principal, Decimal(str(holding.annual_rate)), holding.start_date, date.today(), holding.compounding_frequency)
+    await _write_initial_valuation(session, asset_id, new_principal, fi_current, fi_current - new_principal)
+    await session.commit()
+
+    return {"asset_id": asset_id, "new_principal": float(new_principal)}
