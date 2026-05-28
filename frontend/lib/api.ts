@@ -114,6 +114,9 @@ export const recalculateValuations = () => post<unknown>("/valuations/recalculat
 export const searchMutualFunds = (q: string) =>
   get<MutualFundScheme[]>(`/market/mutual-funds/search?q=${encodeURIComponent(q)}`);
 
+export const getMfCurrentNav = (schemeCode: string) =>
+  get<{ scheme_code: string; nav: number; date: string }>(`/market/mutual-funds/${schemeCode}/nav`);
+
 export async function createAsset(payload: {
   name: string;
   asset_type: string;
