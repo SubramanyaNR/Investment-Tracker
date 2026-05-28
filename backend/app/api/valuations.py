@@ -2,7 +2,11 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select, func, and_
 from app.db.session import AsyncSessionLocal
 from app.db.models import ValuationHistory
-from app.services.valuation import recalculate_crypto_valuations, recalculate_fixed_income_valuations
+from app.services.valuation import (
+    recalculate_crypto_valuations,
+    recalculate_fixed_income_valuations,
+    recalculate_mf_valuations,
+)
 from app.services.portfolio import create_or_update_snapshot
 
 router = APIRouter()
@@ -17,8 +21,9 @@ async def get_session():
 async def recalculate(session=Depends(get_session)):
     crypto = await recalculate_crypto_valuations(session)
     fi = await recalculate_fixed_income_valuations(session)
+    mf = await recalculate_mf_valuations(session)
     await create_or_update_snapshot(session)
-    return {"crypto": crypto, "fixed_income": fi}
+    return {"crypto": crypto, "fixed_income": fi, "mutual_funds": mf}
 
 
 @router.get("/valuations/latest")

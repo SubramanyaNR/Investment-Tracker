@@ -10,14 +10,17 @@ import {
   getSnapshots,
   getTransactions,
   recalculateValuations,
+  redeemMutualFund,
   sellCrypto,
   type Asset,
   type CryptoMarket,
+  type MutualFundScheme,
   type Snapshot,
   type TxRecord,
   type Valuation,
 } from "@/lib/api";
 import CryptoSelector from "@/components/CryptoSelector";
+import MutualFundSelector from "@/components/MutualFundSelector";
 import NetWorthChart from "@/components/NetWorthChart";
 
 type Dashboard = {
@@ -70,8 +73,13 @@ export default function DashboardPage() {
   const [startDate, setStartDate] = useState("");
   const [maturityDate, setMaturityDate] = useState("");
   const [compFrequency, setCompFrequency] = useState("YEARLY");
+  // Mutual fund
+  const [selectedFund, setSelectedFund] = useState<MutualFundScheme | null>(null);
+  const [mfUnits, setMfUnits] = useState("");
+  const [mfNav, setMfNav] = useState("");
 
   const [sellQuantities, setSellQuantities] = useState<Record<string, string>>({});
+  const [redeemUnits, setRedeemUnits] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -112,6 +120,7 @@ export default function DashboardPage() {
     setName(""); setQuantity(""); setAvgBuyPrice(""); setSelectedCrypto(null);
     setBoughtAtCurrentPrice(false); setPrincipal(""); setAnnualRate("");
     setStartDate(""); setMaturityDate(""); setCompFrequency("YEARLY");
+    setSelectedFund(null); setMfUnits(""); setMfNav("");
   }
 
   async function addAsset() {
@@ -123,6 +132,9 @@ export default function DashboardPage() {
     }
     if (FI.includes(assetType) && (!principal || !annualRate || !startDate)) {
       setError(`${assetType} requires principal, interest rate, and start date.`); return;
+    }
+    if (assetType === "MUTUAL_FUND" && (!selectedFund || !mfUnits || !mfNav)) {
+      setError("Select a fund, enter units and purchase NAV."); return;
     }
 
     try {
@@ -144,6 +156,11 @@ export default function DashboardPage() {
           start_date: startDate,
           maturity_date: maturityDate || undefined,
           compounding_frequency: compFrequency,
+        } : {}),
+        ...(assetType === "MUTUAL_FUND" && selectedFund ? {
+          scheme_code: selectedFund.scheme_code,
+          units: Number(mfUnits),
+          nav_at_purchase: Number(mfNav),
         } : {}),
       });
       resetForm();
@@ -190,6 +207,20 @@ export default function DashboardPage() {
       await loadData();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to sell crypto.");
+    }
+  }
+
+  async function redeemExistingMF(assetId: string) {
+    const units = Number(redeemUnits[assetId]);
+    if (!units || units <= 0) { setError("Enter valid units to redeem."); return; }
+    try {
+      setError("");
+      await redeemMutualFund(assetId, units);
+      setRedeemUnits((c) => ({ ...c, [assetId]: "" }));
+      await recalculateValuations();
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to redeem units.");
     }
   }
 
@@ -333,7 +364,16 @@ export default function DashboardPage() {
                               <span className="text-orange-400">Locked</span>
                             </p>
                           )}
-                          {!asset.holding && !asset.fi_holding && (
+                          {asset.mf_holding && (
+                            <p className="mt-0.5 text-[10px] text-slate-500">
+                              <span className="font-semibold text-violet-400">{fmtQty(asset.mf_holding.units)} units</span>
+                              <span className="mx-1.5 text-slate-700">·</span>
+                              <span>NAV ₹{asset.mf_holding.nav_at_purchase.toFixed(2)} avg</span>
+                              <span className="mx-1.5 text-slate-700">·</span>
+                              <span className="text-slate-600">#{asset.mf_holding.scheme_code}</span>
+                            </p>
+                          )}
+                          {!asset.holding && !asset.fi_holding && !asset.mf_holding && (
                             <p className="text-[10px] text-slate-600 capitalize">{asset.category} · {asset.liquidity_tier === "LIQUID" ? <span className="text-emerald-400">Liquid</span> : <span className="text-orange-400">Locked</span>}</p>
                           )}
                         </div>
@@ -385,6 +425,23 @@ export default function DashboardPage() {
                             </button>
                           </>
                         )}
+                        {asset.asset_type === "MUTUAL_FUND" && (
+                          <>
+                            <input
+                              value={redeemUnits[asset.id] ?? ""}
+                              onChange={(e) => setRedeemUnits((c) => ({ ...c, [asset.id]: e.target.value }))}
+                              placeholder="units"
+                              inputMode="decimal"
+                              className="w-16 rounded-md px-2 py-1 text-[11px] text-slate-300 outline-none"
+                              style={{ background: "rgba(255,255,255,0.055)", border: "1px solid rgba(255,255,255,0.11)" }}
+                            />
+                            <button type="button" onClick={() => redeemExistingMF(asset.id)}
+                              className="rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors hover:bg-violet-400/25"
+                              style={{ background: "rgba(167,139,250,0.1)", border: "1px solid rgba(167,139,250,0.28)", color: "#c4b5fd" }}>
+                              Redeem
+                            </button>
+                          </>
+                        )}
                         <button type="button" onClick={() => removeAsset(asset.id)}
                           className="rounded-md px-2.5 py-1 text-[11px] font-medium opacity-0 transition-all group-hover:opacity-100 hover:bg-red-400/25"
                           style={{ background: "rgba(248,113,113,0.09)", border: "1px solid rgba(248,113,113,0.22)", color: "#f87171" }}>
@@ -432,6 +489,28 @@ export default function DashboardPage() {
                     <span className="text-xs text-slate-400">Bought at current market price</span>
                     {selectedCrypto && boughtAtCurrentPrice && <span className="ml-auto text-xs font-semibold text-amber-400">₹{selectedCrypto.current_price.toLocaleString("en-IN")}</span>}
                   </label>
+                </>
+              )}
+
+              {assetType === "MUTUAL_FUND" && (
+                <>
+                  <Field label="Fund">
+                    <MutualFundSelector selected={selectedFund} onSelect={setSelectedFund} />
+                  </Field>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Units Purchased">
+                      <input value={mfUnits} onChange={(e) => setMfUnits(e.target.value)} placeholder="250.5" inputMode="decimal" className="field-input"/>
+                    </Field>
+                    <Field label="NAV at Purchase (₹)">
+                      <input value={mfNav} onChange={(e) => setMfNav(e.target.value)} placeholder="45.23" inputMode="decimal" className="field-input"/>
+                    </Field>
+                  </div>
+                  {selectedFund && (
+                    <div className="rounded-lg px-3 py-2" style={{ background: "rgba(167,139,250,0.07)", border: "1px solid rgba(167,139,250,0.18)" }}>
+                      <p className="text-[10px] text-violet-300/80 truncate">{selectedFund.name}</p>
+                      <p className="mt-0.5 text-[9px] text-slate-600">Scheme Code: {selectedFund.scheme_code}</p>
+                    </div>
+                  )}
                 </>
               )}
 

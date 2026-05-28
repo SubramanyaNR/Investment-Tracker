@@ -18,6 +18,12 @@ export type FixedIncomeHoldingDetail = {
   compounding_frequency: string;
 };
 
+export type MutualFundHoldingDetail = {
+  scheme_code: string;
+  units: number;
+  nav_at_purchase: number;
+};
+
 export type Asset = {
   id: string;
   name: string;
@@ -27,6 +33,7 @@ export type Asset = {
   created_at: string;
   holding?: CryptoHoldingDetail;
   fi_holding?: FixedIncomeHoldingDetail;
+  mf_holding?: MutualFundHoldingDetail;
 };
 
 export type CryptoMarket = {
@@ -36,6 +43,11 @@ export type CryptoMarket = {
   image: string;
   current_price: number;
   market_cap_rank: number;
+};
+
+export type MutualFundScheme = {
+  scheme_code: string;
+  name: string;
 };
 
 export type Valuation = {
@@ -97,6 +109,9 @@ export const getTransactions = () => get<TxRecord[]>("/transactions");
 export const getTopCryptos = () => get<CryptoMarket[]>("/market/crypto/top");
 export const recalculateValuations = () => post<unknown>("/valuations/recalculate");
 
+export const searchMutualFunds = (q: string) =>
+  get<MutualFundScheme[]>(`/market/mutual-funds/search?q=${encodeURIComponent(q)}`);
+
 export async function createAsset(payload: {
   name: string;
   asset_type: string;
@@ -113,6 +128,10 @@ export async function createAsset(payload: {
   start_date?: string;
   maturity_date?: string;
   compounding_frequency?: string;
+  // mutual fund
+  scheme_code?: string;
+  units?: number;
+  nav_at_purchase?: number;
 }) {
   return post<Asset>("/assets", payload);
 }
@@ -130,5 +149,12 @@ export async function sellCrypto(assetId: string, quantity: number) {
   return post<{ asset_id: string; remaining_quantity: number }>(
     `/assets/${assetId}/sell-crypto`,
     { quantity },
+  );
+}
+
+export async function redeemMutualFund(assetId: string, units: number) {
+  return post<{ asset_id: string; remaining_units: number }>(
+    `/assets/${assetId}/redeem-mf`,
+    { units },
   );
 }
