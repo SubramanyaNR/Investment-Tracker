@@ -41,7 +41,7 @@ body {
 }
 
 .field-input:focus {
-  border-color: rgba(34, 211, 238, 0.4);
+  border-color: rgba(245, 158, 11, 0.45);
 }
 
 .field-input::placeholder {

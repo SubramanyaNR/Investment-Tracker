@@ -31,8 +31,18 @@ async def list_assets(session=Depends(get_session)):
     result = await session.execute(select(Asset).order_by(Asset.created_at.desc()))
     assets = result.scalars().all()
 
-    return [
-        {
+    if not assets:
+        return []
+
+    asset_ids = [a.id for a in assets]
+    holdings_result = await session.execute(
+        select(CryptoHolding).where(CryptoHolding.asset_id.in_(asset_ids))
+    )
+    holdings_map = {str(h.asset_id): h for h in holdings_result.scalars().all()}
+
+    rows = []
+    for asset in assets:
+        row: dict = {
             "id": str(asset.id),
             "name": asset.name,
             "asset_type": asset.asset_type,
@@ -40,8 +50,18 @@ async def list_assets(session=Depends(get_session)):
             "liquidity_tier": asset.liquidity_tier,
             "created_at": str(asset.created_at),
         }
-        for asset in assets
-    ]
+        if asset.asset_type == "CRYPTO":
+            h = holdings_map.get(str(asset.id))
+            if h:
+                row["holding"] = {
+                    "symbol": h.symbol,
+                    "coingecko_id": h.coingecko_id,
+                    "quantity": float(h.quantity),
+                    "avg_buy_price": float(h.avg_buy_price),
+                }
+        rows.append(row)
+
+    return rows
 
 
 @router.post("/assets")
