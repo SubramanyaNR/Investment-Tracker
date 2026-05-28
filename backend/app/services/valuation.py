@@ -1,9 +1,37 @@
 from datetime import date
 from decimal import Decimal
-from sqlalchemy import select
+from sqlalchemy import select, delete, and_
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.db.models import Asset, CryptoHolding, ValuationHistory
+from app.db.models import Asset, CryptoHolding, FixedIncomeHolding, ValuationHistory
 from app.integrations.coingecko import get_crypto_prices
+from app.services.fixed_income import compound_value
+
+
+async def _upsert_valuation(
+    session: AsyncSession,
+    asset_id,
+    invested: Decimal,
+    current: Decimal,
+    pnl: Decimal,
+    source: str,
+) -> None:
+    """Replace today's valuation row for this asset to avoid duplicate accumulation."""
+    await session.execute(
+        delete(ValuationHistory).where(
+            and_(
+                ValuationHistory.asset_id == asset_id,
+                ValuationHistory.valuation_date == date.today(),
+            )
+        )
+    )
+    session.add(ValuationHistory(
+        asset_id=asset_id,
+        valuation_date=date.today(),
+        invested_amount=invested,
+        current_value=current,
+        pnl=pnl,
+        source=source,
+    ))
 
 
 async def recalculate_crypto_valuations(session: AsyncSession) -> list[dict]:
@@ -12,7 +40,6 @@ async def recalculate_crypto_valuations(session: AsyncSession) -> list[dict]:
         .join(CryptoHolding, CryptoHolding.asset_id == Asset.id)
         .where(Asset.asset_type == "CRYPTO")
     )
-
     rows = result.all()
     if not rows:
         return []
@@ -21,34 +48,54 @@ async def recalculate_crypto_valuations(session: AsyncSession) -> list[dict]:
     prices = await get_crypto_prices(coin_ids)
 
     output = []
-
     for asset, holding in rows:
         price = Decimal(str(prices[holding.coingecko_id]["inr"]))
-        quantity = Decimal(holding.quantity)
-        avg_buy_price = Decimal(holding.avg_buy_price)
+        quantity = Decimal(str(holding.quantity))
+        avg_buy_price = Decimal(str(holding.avg_buy_price))
 
-        invested_amount = quantity * avg_buy_price
-        current_value = quantity * price
-        pnl = current_value - invested_amount
+        invested = quantity * avg_buy_price
+        current = quantity * price
+        pnl = current - invested
 
-        valuation = ValuationHistory(
-            asset_id=asset.id,
-            valuation_date=date.today(),
-            invested_amount=invested_amount,
-            current_value=current_value,
-            pnl=pnl,
-            source="coingecko",
-        )
-
-        session.add(valuation)
+        await _upsert_valuation(session, asset.id, invested, current, pnl, "coingecko")
 
         output.append({
             "asset": asset.name,
             "coin": holding.coingecko_id,
             "price": float(price),
             "quantity": float(quantity),
-            "invested_amount": float(invested_amount),
-            "current_value": float(current_value),
+            "invested_amount": float(invested),
+            "current_value": float(current),
+            "pnl": float(pnl),
+        })
+
+    await session.commit()
+    return output
+
+
+async def recalculate_fixed_income_valuations(session: AsyncSession) -> list[dict]:
+    result = await session.execute(
+        select(Asset, FixedIncomeHolding)
+        .join(FixedIncomeHolding, FixedIncomeHolding.asset_id == Asset.id)
+    )
+    rows = result.all()
+    if not rows:
+        return []
+
+    today = date.today()
+    output = []
+    for asset, holding in rows:
+        principal = Decimal(str(holding.principal))
+        rate = Decimal(str(holding.annual_rate))
+        current = compound_value(principal, rate, holding.start_date, today, holding.compounding_frequency)
+        pnl = current - principal
+
+        await _upsert_valuation(session, asset.id, principal, current, pnl, "compound_interest")
+
+        output.append({
+            "asset": asset.name,
+            "principal": float(principal),
+            "current_value": float(current),
             "pnl": float(pnl),
         })
 
