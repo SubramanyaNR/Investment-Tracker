@@ -9,7 +9,9 @@ import {
   recalculateValuations,
   sellCrypto,
   type Asset,
+  type CryptoMarket,
 } from "@/lib/api";
+import CryptoSelector from "@/components/CryptoSelector";
 
 type Dashboard = {
   total_value: number;
@@ -28,16 +30,30 @@ export default function DashboardPage() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [name, setName] = useState("");
   const [assetType, setAssetType] = useState("MUTUAL_FUND");
-  const [coingeckoId, setCoingeckoId] = useState("bitcoin");
-  const [symbol, setSymbol] = useState("BTC");
+  const [selectedCrypto, setSelectedCrypto] = useState<CryptoMarket | null>(null);
   const [quantity, setQuantity] = useState("");
   const [avgBuyPrice, setAvgBuyPrice] = useState("");
+  const [boughtAtCurrentPrice, setBoughtAtCurrentPrice] = useState(false);
   const [sellQuantities, setSellQuantities] = useState<Record<string, string>>(
     {},
   );
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  function handleCryptoSelect(coin: CryptoMarket) {
+    setSelectedCrypto(coin);
+    if (boughtAtCurrentPrice) {
+      setAvgBuyPrice(String(coin.current_price));
+    }
+  }
+
+  function handleBoughtAtCurrentPrice(checked: boolean) {
+    setBoughtAtCurrentPrice(checked);
+    if (checked && selectedCrypto) {
+      setAvgBuyPrice(String(selectedCrypto.current_price));
+    }
+  }
 
   async function loadData() {
     const [dashboardData, assetData] = await Promise.all([
@@ -63,8 +79,8 @@ export default function DashboardPage() {
     }
 
     if (assetType === "CRYPTO") {
-      if (!coingeckoId.trim() || !symbol.trim() || !quantity || !avgBuyPrice) {
-        setError("Crypto requires CoinGecko ID, symbol, quantity, and buy price.");
+      if (!selectedCrypto || !quantity || !avgBuyPrice) {
+        setError("Crypto requires a selected coin, quantity, and buy price.");
         return;
       }
     }
@@ -84,10 +100,10 @@ export default function DashboardPage() {
             : "equity",
         liquidity_tier:
           assetType === "FD" || assetType === "PPF" ? "LOCKED" : "LIQUID",
-        ...(assetType === "CRYPTO"
+        ...(assetType === "CRYPTO" && selectedCrypto
           ? {
-              coingecko_id: coingeckoId,
-              symbol,
+              coingecko_id: selectedCrypto.id,
+              symbol: selectedCrypto.symbol,
               quantity: Number(quantity),
               avg_buy_price: Number(avgBuyPrice),
             }
@@ -97,6 +113,8 @@ export default function DashboardPage() {
       setName("");
       setQuantity("");
       setAvgBuyPrice("");
+      setSelectedCrypto(null);
+      setBoughtAtCurrentPrice(false);
       await loadData();
     } catch (err) {
       console.error(err);
@@ -231,36 +249,45 @@ export default function DashboardPage() {
           </div>
 
           {assetType === "CRYPTO" ? (
-            <div className="mt-3 grid gap-3 md:grid-cols-4">
-              <input
-                value={coingeckoId}
-                onChange={(e) => setCoingeckoId(e.target.value)}
-                placeholder="coingecko id: bitcoin"
-                className="rounded-lg border border-zinc-800 bg-black px-3 py-2 text-sm text-zinc-100 outline-none focus:border-cyan-400"
-              />
+            <div className="mt-3 space-y-3">
+              <div className="grid gap-3 md:grid-cols-3">
+                <CryptoSelector
+                  selected={selectedCrypto}
+                  onSelect={handleCryptoSelect}
+                />
 
-              <input
-                value={symbol}
-                onChange={(e) => setSymbol(e.target.value)}
-                placeholder="symbol: BTC"
-                className="rounded-lg border border-zinc-800 bg-black px-3 py-2 text-sm text-zinc-100 outline-none focus:border-cyan-400"
-              />
+                <input
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
+                  placeholder="quantity: 0.05"
+                  inputMode="decimal"
+                  className="rounded-lg border border-zinc-800 bg-black px-3 py-2 text-sm text-zinc-100 outline-none focus:border-cyan-400"
+                />
 
-              <input
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-                placeholder="quantity: 0.05"
-                inputMode="decimal"
-                className="rounded-lg border border-zinc-800 bg-black px-3 py-2 text-sm text-zinc-100 outline-none focus:border-cyan-400"
-              />
+                <input
+                  value={avgBuyPrice}
+                  onChange={(e) => setAvgBuyPrice(e.target.value)}
+                  placeholder="avg buy price (INR)"
+                  inputMode="decimal"
+                  disabled={boughtAtCurrentPrice}
+                  className="rounded-lg border border-zinc-800 bg-black px-3 py-2 text-sm text-zinc-100 outline-none focus:border-cyan-400 disabled:cursor-not-allowed disabled:opacity-40"
+                />
+              </div>
 
-              <input
-                value={avgBuyPrice}
-                onChange={(e) => setAvgBuyPrice(e.target.value)}
-                placeholder="avg buy price INR"
-                inputMode="decimal"
-                className="rounded-lg border border-zinc-800 bg-black px-3 py-2 text-sm text-zinc-100 outline-none focus:border-cyan-400"
-              />
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-400">
+                <input
+                  type="checkbox"
+                  checked={boughtAtCurrentPrice}
+                  onChange={(e) => handleBoughtAtCurrentPrice(e.target.checked)}
+                  className="accent-cyan-400"
+                />
+                Bought at current market price
+                {selectedCrypto && boughtAtCurrentPrice ? (
+                  <span className="text-cyan-300">
+                    (₹{Number(selectedCrypto.current_price).toLocaleString("en-IN")})
+                  </span>
+                ) : null}
+              </label>
             </div>
           ) : null}
         </section>
