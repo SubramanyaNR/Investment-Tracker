@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+*.egg-info/
+dist/
+build/
+
+# Env
+.env
+*.env.local
+
+# Alembic compiled
+alembic/__pycache__/
+alembic/versions/__pycache__/
