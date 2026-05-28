@@ -1,6 +1,6 @@
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from app.db.session import AsyncSessionLocal
-from app.services.portfolio import create_snapshot
+from app.services.portfolio import create_or_update_snapshot
 
 
 scheduler = AsyncIOScheduler()
@@ -8,7 +8,7 @@ scheduler = AsyncIOScheduler()
 
 async def daily_snapshot_job():
     async with AsyncSessionLocal() as session:
-        await create_snapshot(session)
+        await create_or_update_snapshot(session)
 
 
 def start_scheduler():

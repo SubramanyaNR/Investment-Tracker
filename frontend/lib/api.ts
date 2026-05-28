@@ -1,11 +1,21 @@
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://172.23.80.6:8000";
 
+// ── Types ──────────────────────────────────────────────────────────────────
+
 export type CryptoHoldingDetail = {
   symbol: string;
   coingecko_id: string;
   quantity: number;
   avg_buy_price: number;
+};
+
+export type FixedIncomeHoldingDetail = {
+  principal: number;
+  annual_rate: number;
+  start_date: string;
+  maturity_date: string | null;
+  compounding_frequency: string;
 };
 
 export type Asset = {
@@ -16,6 +26,7 @@ export type Asset = {
   liquidity_tier: string;
   created_at: string;
   holding?: CryptoHoldingDetail;
+  fi_holding?: FixedIncomeHoldingDetail;
 };
 
 export type CryptoMarket = {
@@ -27,108 +38,97 @@ export type CryptoMarket = {
   market_cap_rank: number;
 };
 
-export async function getDashboard() {
-  const res = await fetch(`${API_BASE_URL}/dashboard`, {
-    cache: "no-store",
-  });
+export type Valuation = {
+  asset_id: string;
+  valuation_date: string;
+  invested_amount: number;
+  current_value: number;
+  pnl: number;
+  source: string;
+};
 
-  if (!res.ok) {
-    throw new Error("Failed to load dashboard");
-  }
+export type Snapshot = {
+  snapshot_date: string;
+  total_invested: number;
+  total_value: number;
+  total_pnl: number;
+};
 
+export type TxRecord = {
+  id: string;
+  asset_id: string;
+  asset_name: string;
+  asset_type: string;
+  transaction_type: string;
+  transaction_date: string;
+  amount: number;
+  units: number | null;
+  price_per_unit: number | null;
+};
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+async function get<T>(path: string): Promise<T> {
+  const res = await fetch(`${API_BASE_URL}${path}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`GET ${path} failed: ${res.status}`);
   return res.json();
 }
 
-export async function getAssets(): Promise<Asset[]> {
-  const res = await fetch(`${API_BASE_URL}/assets`, {
-    cache: "no-store",
+async function post<T>(path: string, body?: unknown): Promise<T> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: "POST",
+    headers: body ? { "Content-Type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
   });
-
   if (!res.ok) {
-    throw new Error("Failed to load assets");
+    const text = await res.text();
+    throw new Error(`POST ${path} failed: ${res.status} ${text}`);
   }
-
   return res.json();
 }
 
+// ── API functions ──────────────────────────────────────────────────────────
+
+export const getDashboard = () => get<Record<string, number>>("/dashboard");
+export const getAssets = () => get<Asset[]>("/assets");
+export const getLatestValuations = () => get<Valuation[]>("/valuations/latest");
+export const getSnapshots = () => get<Snapshot[]>("/snapshots");
+export const getTransactions = () => get<TxRecord[]>("/transactions");
+export const getTopCryptos = () => get<CryptoMarket[]>("/market/crypto/top");
+export const recalculateValuations = () => post<unknown>("/valuations/recalculate");
 
 export async function createAsset(payload: {
   name: string;
   asset_type: string;
   category: string;
   liquidity_tier: string;
+  // crypto
   coingecko_id?: string;
   symbol?: string;
   quantity?: number;
   avg_buy_price?: number;
+  // fixed income
+  principal?: number;
+  annual_rate?: number;
+  start_date?: string;
+  maturity_date?: string;
+  compounding_frequency?: string;
 }) {
-  const res = await fetch(`${API_BASE_URL}/assets`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Failed to create asset: ${res.status} ${text}`);
-  }
-
-  return res.json();
-}
-
-export async function recalculateValuations() {
-  const res = await fetch(`${API_BASE_URL}/valuations/recalculate`, {
-    method: "POST",
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Failed to recalculate valuations: ${res.status} ${text}`);
-  }
-
-  return res.json();
+  return post<Asset>("/assets", payload);
 }
 
 export async function deleteAsset(assetId: string) {
-  const res = await fetch(`${API_BASE_URL}/assets/${assetId}`, {
-    method: "DELETE",
-  });
-
+  const res = await fetch(`${API_BASE_URL}/assets/${assetId}`, { method: "DELETE" });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Failed to delete asset: ${res.status} ${text}`);
+    throw new Error(`DELETE /assets/${assetId} failed: ${res.status} ${text}`);
   }
-
-  return res.json();
-}
-
-export async function getTopCryptos(): Promise<CryptoMarket[]> {
-  const res = await fetch(`${API_BASE_URL}/market/crypto/top`, {
-    cache: "no-store",
-  });
-
-  if (!res.ok) {
-    throw new Error("Failed to load top cryptos");
-  }
-
   return res.json();
 }
 
 export async function sellCrypto(assetId: string, quantity: number) {
-  const res = await fetch(`${API_BASE_URL}/assets/${assetId}/sell-crypto`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ quantity }),
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Failed to sell crypto: ${res.status} ${text}`);
-  }
-
-  return res.json();
+  return post<{ asset_id: string; remaining_quantity: number }>(
+    `/assets/${assetId}/sell-crypto`,
+    { quantity },
+  );
 }
