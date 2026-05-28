@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import {
   createAsset, deleteAsset, getAssets, getDashboard, getLatestValuations,
-  getSnapshots, getTransactions, recalculateValuations, redeemMutualFund,
+  getSnapshots, getTransactions, getMfCurrentNav, recalculateValuations, redeemMutualFund,
   sellCrypto, topUpSavings,
   type Asset, type CryptoMarket, type MutualFundScheme,
   type Snapshot, type TxRecord, type Valuation,
@@ -84,10 +84,12 @@ export default function DashboardPage() {
   const [rdTotalInvested, setRdTotalInvested] = useState("");
 
   // ── Form — Mutual fund ──
-  const [selectedFund, setSelectedFund] = useState<MutualFundScheme | null>(null);
-  const [mfAmount,     setMfAmount]     = useState("");
-  const [mfNav,        setMfNav]        = useState("");
-  const [mfSip,        setMfSip]        = useState("");
+  const [selectedFund,  setSelectedFund]  = useState<MutualFundScheme | null>(null);
+  const [mfAmount,      setMfAmount]      = useState("");
+  const [mfNav,         setMfNav]         = useState("");
+  const [mfNavDate,     setMfNavDate]     = useState("");
+  const [mfNavLoading,  setMfNavLoading]  = useState(false);
+  const [mfSip,         setMfSip]         = useState("");
 
   // ── Action inputs ──
   const [sellQuantities, setSellQuantities] = useState<Record<string, string>>({});
@@ -113,13 +115,24 @@ export default function DashboardPage() {
     loadData().catch(() => setError("Failed to load dashboard data."));
   }, []);
 
+  // Auto-fetch current NAV when a fund is selected so the NAV field is pre-filled
+  // and doesn't immediately diverge from the live price on the first refresh.
+  useEffect(() => {
+    if (!selectedFund) { setMfNav(""); setMfNavDate(""); return; }
+    setMfNavLoading(true);
+    getMfCurrentNav(selectedFund.scheme_code)
+      .then((data) => { setMfNav(String(data.nav)); setMfNavDate(data.date); })
+      .catch(() => {})
+      .finally(() => setMfNavLoading(false));
+  }, [selectedFund]);
+
   // ── Form helpers ──
 
   function resetForm() {
     setName(""); setQuantity(""); setAvgBuyPrice(""); setSelectedCrypto(null);
     setBoughtAtCurrentPrice(false); setPrincipal(""); setAnnualRate("");
     setStartDate(""); setMaturityDate(""); setCompFrequency("YEARLY");
-    setSelectedFund(null); setMfAmount(""); setMfNav(""); setMfSip("");
+    setSelectedFund(null); setMfAmount(""); setMfNav(""); setMfNavDate(""); setMfSip("");
     setRdTotalInvested("");
   }
 
@@ -633,13 +646,18 @@ export default function DashboardPage() {
                           <Field label="Total Amount Invested (₹)">
                             <input value={mfAmount} onChange={(e) => setMfAmount(e.target.value)} placeholder="50000" inputMode="decimal" className="field-input"/>
                           </Field>
-                          <Field label="NAV at Purchase (₹)">
-                            <input value={mfNav} onChange={(e) => setMfNav(e.target.value)} placeholder="45.23" inputMode="decimal" className="field-input"/>
+                          <Field label={mfNavLoading ? "NAV at Purchase (₹) — fetching…" : mfNavDate ? `NAV at Purchase (₹) · as of ${mfNavDate}` : "NAV at Purchase (₹)"}>
+                            <input value={mfNav} onChange={(e) => setMfNav(e.target.value)} placeholder="45.23" inputMode="decimal" className="field-input" disabled={mfNavLoading}/>
                           </Field>
                         </div>
                         {mfAmount && mfNav && Number(mfNav) > 0 && (
                           <p className="text-[10px]" style={{ color: "var(--text-secondary)" }}>
                             Units: <span className="font-semibold text-violet-400">{(Number(mfAmount) / Number(mfNav)).toFixed(4)}</span>
+                          </p>
+                        )}
+                        {mfNavDate && (
+                          <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                            NAV auto-filled from live data · override if your avg purchase NAV differs
                           </p>
                         )}
                         <Field label="Monthly SIP Amount (₹) — optional">
