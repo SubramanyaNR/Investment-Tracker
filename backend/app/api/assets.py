@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from typing import Optional
 from app.db.session import AsyncSessionLocal
-from app.db.models import Asset, CryptoHolding, FixedIncomeHolding, Transaction
+from app.db.models import Asset, CryptoHolding, FixedIncomeHolding, MutualFundHolding, Transaction
 
 router = APIRouter()
 
@@ -28,6 +28,10 @@ class AssetCreate(BaseModel):
     start_date: Optional[date] = None
     maturity_date: Optional[date] = None
     compounding_frequency: Optional[str] = None
+    # Mutual fund
+    scheme_code: Optional[str] = None
+    units: Optional[Decimal] = None
+    nav_at_purchase: Optional[Decimal] = None
 
 
 async def get_session():
@@ -66,6 +70,11 @@ async def list_assets(session=Depends(get_session)):
     )
     fi_map = {str(h.asset_id): h for h in fi_result.scalars().all()}
 
+    mf_result = await session.execute(
+        select(MutualFundHolding).where(MutualFundHolding.asset_id.in_(asset_ids))
+    )
+    mf_map = {str(h.asset_id): h for h in mf_result.scalars().all()}
+
     rows = []
     for asset in assets:
         aid = str(asset.id)
@@ -87,6 +96,13 @@ async def list_assets(session=Depends(get_session)):
                 "start_date": str(fi.start_date),
                 "maturity_date": str(fi.maturity_date) if fi.maturity_date else None,
                 "compounding_frequency": fi.compounding_frequency,
+            }
+        elif asset.asset_type == "MUTUAL_FUND" and aid in mf_map:
+            mf = mf_map[aid]
+            row["mf_holding"] = {
+                "scheme_code": mf.scheme_code,
+                "units": float(mf.units),
+                "nav_at_purchase": float(mf.nav_at_purchase),
             }
 
         rows.append(row)
@@ -162,6 +178,73 @@ async def create_asset(payload: AssetCreate, session=Depends(get_session)):
 
         return _asset_row(asset)
 
+    # ── MUTUAL FUND ──────────────────────────────────────────────────────────
+    if payload.asset_type == "MUTUAL_FUND":
+        if not payload.scheme_code or payload.units is None or payload.nav_at_purchase is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Mutual fund requires scheme_code, units, and nav_at_purchase",
+            )
+
+        add_units = payload.units
+        add_nav = payload.nav_at_purchase
+
+        existing_result = await session.execute(
+            select(MutualFundHolding).where(MutualFundHolding.scheme_code == payload.scheme_code)
+        )
+        existing = existing_result.scalar_one_or_none()
+
+        if existing:
+            old_units = existing.units
+            old_nav = existing.nav_at_purchase
+            total_units = old_units + add_units
+            if total_units > 0:
+                existing.nav_at_purchase = (old_units * old_nav + add_units * add_nav) / total_units
+            existing.units = total_units
+
+            session.add(Transaction(
+                asset_id=existing.asset_id,
+                transaction_type="BUY",
+                transaction_date=date.today(),
+                amount=add_units * add_nav,
+                units=add_units,
+                price_per_unit=add_nav,
+            ))
+            await session.commit()
+
+            asset_result = await session.execute(
+                select(Asset).where(Asset.id == existing.asset_id)
+            )
+            asset = asset_result.scalar_one()
+        else:
+            asset = Asset(
+                name=payload.name,
+                asset_type=payload.asset_type,
+                category=payload.category,
+                liquidity_tier=payload.liquidity_tier,
+            )
+            session.add(asset)
+            await session.flush()
+
+            session.add(MutualFundHolding(
+                asset_id=asset.id,
+                scheme_code=payload.scheme_code,
+                units=add_units,
+                nav_at_purchase=add_nav,
+            ))
+            session.add(Transaction(
+                asset_id=asset.id,
+                transaction_type="BUY",
+                transaction_date=date.today(),
+                amount=add_units * add_nav,
+                units=add_units,
+                price_per_unit=add_nav,
+            ))
+            await session.commit()
+            await session.refresh(asset)
+
+        return _asset_row(asset)
+
     # ── FIXED INCOME (FD / RD / PPF) ────────────────────────────────────────
     if payload.asset_type in FI_TYPES:
         if payload.principal is None or payload.annual_rate is None or payload.start_date is None:
@@ -199,7 +282,7 @@ async def create_asset(payload: AssetCreate, session=Depends(get_session)):
         await session.refresh(asset)
         return _asset_row(asset)
 
-    # ── MUTUAL FUND + other ─────────────────────────────────────────────────
+    # ── OTHER ────────────────────────────────────────────────────────────────
     asset = Asset(
         name=payload.name,
         asset_type=payload.asset_type,
@@ -256,3 +339,36 @@ async def sell_crypto(asset_id: str, payload: CryptoSellRequest, session=Depends
     await session.commit()
 
     return {"asset_id": asset_id, "remaining_quantity": float(holding.quantity)}
+
+
+class MFRedeemRequest(BaseModel):
+    units: Decimal
+
+
+@router.post("/assets/{asset_id}/redeem-mf")
+async def redeem_mf(asset_id: str, payload: MFRedeemRequest, session=Depends(get_session)):
+    result = await session.execute(
+        select(MutualFundHolding).where(MutualFundHolding.asset_id == asset_id)
+    )
+    holding = result.scalar_one_or_none()
+
+    if not holding:
+        raise HTTPException(status_code=404, detail="Mutual fund holding not found")
+    if payload.units <= 0:
+        raise HTTPException(status_code=400, detail="Redeem units must be positive")
+    if payload.units > holding.units:
+        raise HTTPException(status_code=400, detail="Cannot redeem more than held units")
+
+    holding.units = holding.units - payload.units
+
+    session.add(Transaction(
+        asset_id=holding.asset_id,
+        transaction_type="SELL",
+        transaction_date=date.today(),
+        amount=payload.units * holding.nav_at_purchase,
+        units=payload.units,
+        price_per_unit=holding.nav_at_purchase,
+    ))
+    await session.commit()
+
+    return {"asset_id": asset_id, "remaining_units": float(holding.units)}
