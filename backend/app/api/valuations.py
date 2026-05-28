@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy import select
+from sqlalchemy import select, func, and_
 from app.db.session import AsyncSessionLocal
 from app.db.models import ValuationHistory
-from app.services.valuation import recalculate_crypto_valuations
+from app.services.valuation import recalculate_crypto_valuations, recalculate_fixed_income_valuations
+from app.services.portfolio import create_or_update_snapshot
 
 router = APIRouter()
 
@@ -15,14 +16,31 @@ async def get_session():
 @router.post("/valuations/recalculate")
 async def recalculate(session=Depends(get_session)):
     crypto = await recalculate_crypto_valuations(session)
-    return {"crypto": crypto}
+    fi = await recalculate_fixed_income_valuations(session)
+    await create_or_update_snapshot(session)
+    return {"crypto": crypto, "fixed_income": fi}
 
 
 @router.get("/valuations/latest")
 async def latest_valuations(session=Depends(get_session)):
-    result = await session.execute(select(ValuationHistory))
+    subq = (
+        select(
+            ValuationHistory.asset_id,
+            func.max(ValuationHistory.valuation_date).label("latest_date"),
+        )
+        .group_by(ValuationHistory.asset_id)
+        .subquery()
+    )
+    result = await session.execute(
+        select(ValuationHistory).join(
+            subq,
+            and_(
+                ValuationHistory.asset_id == subq.c.asset_id,
+                ValuationHistory.valuation_date == subq.c.latest_date,
+            ),
+        )
+    )
     valuations = result.scalars().all()
-
     return [
         {
             "asset_id": str(v.asset_id),

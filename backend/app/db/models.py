@@ -76,3 +76,17 @@ class CryptoHolding(Base):
     symbol: Mapped[str] = mapped_column(String, nullable=False)
     quantity = mapped_column(Numeric(24, 10), nullable=False)
     avg_buy_price = mapped_column(Numeric(18, 6), nullable=False)
+
+
+class FixedIncomeHolding(Base):
+    __tablename__ = "fixed_income_holdings"
+
+    asset_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("assets.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    principal = mapped_column(Numeric(18, 2), nullable=False)
+    annual_rate = mapped_column(Numeric(8, 4), nullable=False)
+    start_date = mapped_column(Date, nullable=False)
+    maturity_date = mapped_column(Date, nullable=True)
+    compounding_frequency: Mapped[str] = mapped_column(String, nullable=False)
