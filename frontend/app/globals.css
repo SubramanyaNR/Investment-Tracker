@@ -1,11 +1,11 @@
 @import "tailwindcss";
 
 :root {
-  --bg-base: #050507;
-  --bg-surface: #08080c;
-  --bg-elevated: #0d0d14;
-  --border-subtle: rgba(255, 255, 255, 0.05);
-  --border-default: rgba(255, 255, 255, 0.08);
+  --bg-base: #060610;
+  --bg-surface: #0c0c1e;
+  --bg-elevated: #111128;
+  --border-subtle: rgba(255, 255, 255, 0.07);
+  --border-default: rgba(255, 255, 255, 0.11);
 }
 
 @theme inline {
@@ -33,23 +33,24 @@ body {
   font-size: 0.8125rem;
   line-height: 1.5rem;
   color: #cbd5e1;
-  background: rgba(255, 255, 255, 0.035);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.11);
   outline: none;
-  transition: border-color 0.15s ease;
+  transition: border-color 0.15s ease, background 0.15s ease;
   font-family: inherit;
 }
 
 .field-input:focus {
-  border-color: rgba(245, 158, 11, 0.45);
+  border-color: rgba(245, 158, 11, 0.55);
+  background: rgba(245, 158, 11, 0.04);
 }
 
 .field-input::placeholder {
-  color: rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.2);
 }
 
 .field-input option {
-  background: #0e0e18;
+  background: #111128;
   color: #cbd5e1;
 }
 
@@ -67,9 +68,9 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.12);
   border-radius: 2px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.22);
 }
