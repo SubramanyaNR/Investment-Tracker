@@ -10,6 +10,15 @@ export type Asset = {
   created_at: string;
 };
 
+export type CryptoMarket = {
+  id: string;
+  name: string;
+  symbol: string;
+  image: string;
+  current_price: number;
+  market_cap_rank: number;
+};
+
 export async function getDashboard() {
   const res = await fetch(`${API_BASE_URL}/dashboard`, {
     cache: "no-store",
@@ -82,6 +91,18 @@ export async function deleteAsset(assetId: string) {
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`Failed to delete asset: ${res.status} ${text}`);
+  }
+
+  return res.json();
+}
+
+export async function getTopCryptos(): Promise<CryptoMarket[]> {
+  const res = await fetch(`${API_BASE_URL}/market/crypto/top`, {
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to load top cryptos");
   }
 
   return res.json();

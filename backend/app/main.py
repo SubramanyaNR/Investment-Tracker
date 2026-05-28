@@ -9,6 +9,7 @@ from app.core.config import settings
 from app.jobs.scheduler import start_scheduler
 
 from app.api.valuations import router as valuations_router
+from app.api.market import router as market_router
 
 app = FastAPI(title="Investment Observability API")
 
@@ -41,5 +42,6 @@ app.include_router(dashboard_router)
 app.include_router(assets_router)
 app.include_router(insights_router)
 app.include_router(valuations_router)
+app.include_router(market_router)
 
 
