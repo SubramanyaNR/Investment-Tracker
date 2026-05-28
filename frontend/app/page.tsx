@@ -12,6 +12,7 @@ import {
   recalculateValuations,
   redeemMutualFund,
   sellCrypto,
+  topUpSavings,
   type Asset,
   type CryptoMarket,
   type MutualFundScheme,
@@ -22,6 +23,7 @@ import {
 import CryptoSelector from "@/components/CryptoSelector";
 import MutualFundSelector from "@/components/MutualFundSelector";
 import NetWorthChart from "@/components/NetWorthChart";
+import AllocationCharts from "@/components/AllocationCharts";
 
 type Dashboard = {
   total_value: number;
@@ -36,6 +38,7 @@ const TYPE_CFG: Record<string, { dot: string; badge: string; rowAccent: string }
   FD:          { dot: "bg-sky-400",     badge: "border-sky-400/30 bg-sky-400/[0.14] text-sky-300",          rowAccent: "rgba(56,189,248,0.03)" },
   RD:          { dot: "bg-sky-400",     badge: "border-sky-400/30 bg-sky-400/[0.14] text-sky-300",          rowAccent: "rgba(56,189,248,0.03)" },
   PPF:         { dot: "bg-emerald-400", badge: "border-emerald-400/30 bg-emerald-400/[0.14] text-emerald-300", rowAccent: "rgba(52,211,153,0.03)" },
+  SAVINGS_ACC: { dot: "bg-emerald-400", badge: "border-emerald-400/30 bg-emerald-400/[0.14] text-emerald-300", rowAccent: "rgba(52,211,153,0.03)" },
 };
 
 const TX_CFG: Record<string, { color: string; bg: string; border: string }> = {
@@ -81,6 +84,7 @@ export default function DashboardPage() {
 
   const [sellQuantities, setSellQuantities] = useState<Record<string, string>>({});
   const [redeemUnits, setRedeemUnits] = useState<Record<string, string>>({});
+  const [depositAmounts, setDepositAmounts] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -127,12 +131,12 @@ export default function DashboardPage() {
   async function addAsset() {
     if (!name.trim()) { setError("Enter an asset name."); return; }
 
-    const FI = ["FD", "RD", "PPF"];
+    const FI = ["FD", "RD", "PPF", "SAVINGS_ACC"];
     if (assetType === "CRYPTO" && (!selectedCrypto || !quantity || !avgBuyPrice)) {
       setError("Select a coin, enter quantity and buy price."); return;
     }
     if (FI.includes(assetType) && (!principal || !annualRate || !startDate)) {
-      setError(`${assetType} requires principal, interest rate, and start date.`); return;
+      setError(`${assetType} requires balance/principal, interest rate, and start date.`); return;
     }
     if (assetType === "MUTUAL_FUND" && (!selectedFund || !mfAmount || !mfNav)) {
       setError("Select a fund, enter total amount invested and NAV."); return;
@@ -143,7 +147,7 @@ export default function DashboardPage() {
       await createAsset({
         name,
         asset_type: assetType,
-        category: assetType === "CRYPTO" ? "crypto" : FI.includes(assetType) ? "debt" : "equity",
+        category: assetType === "CRYPTO" ? "crypto" : assetType === "SAVINGS_ACC" ? "savings" : FI.includes(assetType) ? "debt" : "equity",
         liquidity_tier: ["FD", "PPF"].includes(assetType) ? "LOCKED" : "LIQUID",
         ...(assetType === "CRYPTO" && selectedCrypto ? {
           coingecko_id: selectedCrypto.id,
@@ -226,6 +230,19 @@ export default function DashboardPage() {
     }
   }
 
+  async function topUpExistingSavings(assetId: string) {
+    const amount = Number(depositAmounts[assetId]);
+    if (!amount || amount <= 0) { setError("Enter a valid top-up amount."); return; }
+    try {
+      setError("");
+      await topUpSavings(assetId, amount);
+      setDepositAmounts((c) => ({ ...c, [assetId]: "" }));
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to top up savings.");
+    }
+  }
+
   const pnlPositive = dashboard.total_pnl >= 0;
   const pnlPct =
     dashboard.pnl_percent ??
@@ -289,6 +306,9 @@ export default function DashboardPage() {
           <KpiCard label="Total Invested" value={inr(dashboard.total_invested)} sub={`${assets.length} position${assets.length !== 1 ? "s" : ""} tracked`} accent="violet"/>
           <KpiCard label="Profit / Loss" value={(pnlPositive ? "+" : "−") + inr(dashboard.total_pnl)} sub={`${pnlPositive ? "+" : "−"}${Math.abs(pnlPct).toFixed(2)}% overall return`} accent={pnlPositive ? "emerald" : "red"}/>
         </section>
+
+        {/* Allocation Charts */}
+        <AllocationCharts assets={assets} valuations={valuations} />
 
         {/* Net Worth Chart */}
         {snapshots.length > 0 && <NetWorthChart snapshots={snapshots} />}
@@ -359,13 +379,15 @@ export default function DashboardPage() {
                           )}
                           {asset.fi_holding && (
                             <p className="mt-0.5 text-[10px] text-slate-500">
-                              <span className="font-semibold text-sky-400">
+                              <span className={`font-semibold ${asset.asset_type === "SAVINGS_ACC" ? "text-emerald-400" : "text-sky-400"}`}>
                                 {asset.asset_type === "RD" ? `${inr(asset.fi_holding.principal)}/mo` : inr(asset.fi_holding.principal)}
                               </span>
                               <span className="mx-1.5 text-slate-700">·</span>
                               <span>{asset.fi_holding.annual_rate}% p.a. {asset.fi_holding.compounding_frequency.toLowerCase()}</span>
                               <span className="mx-1.5 text-slate-700">·</span>
-                              <span className="text-orange-400">Locked</span>
+                              <span className={asset.asset_type === "SAVINGS_ACC" ? "text-emerald-400" : "text-orange-400"}>
+                                {asset.asset_type === "SAVINGS_ACC" ? "Liquid" : "Locked"}
+                              </span>
                             </p>
                           )}
                           {asset.mf_holding && (
@@ -450,6 +472,23 @@ export default function DashboardPage() {
                             </button>
                           </>
                         )}
+                        {asset.asset_type === "SAVINGS_ACC" && (
+                          <>
+                            <input
+                              value={depositAmounts[asset.id] ?? ""}
+                              onChange={(e) => setDepositAmounts((c) => ({ ...c, [asset.id]: e.target.value }))}
+                              placeholder="₹ add"
+                              inputMode="decimal"
+                              className="w-16 rounded-md px-2 py-1 text-[11px] text-slate-300 outline-none"
+                              style={{ background: "rgba(255,255,255,0.055)", border: "1px solid rgba(255,255,255,0.11)" }}
+                            />
+                            <button type="button" onClick={() => topUpExistingSavings(asset.id)}
+                              className="rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors hover:bg-emerald-400/25"
+                              style={{ background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.28)", color: "#6ee7b7" }}>
+                              Top Up
+                            </button>
+                          </>
+                        )}
                         <button type="button" onClick={() => removeAsset(asset.id)}
                           className="rounded-md px-2.5 py-1 text-[11px] font-medium opacity-0 transition-all group-hover:opacity-100 hover:bg-red-400/25"
                           style={{ background: "rgba(248,113,113,0.09)", border: "1px solid rgba(248,113,113,0.22)", color: "#f87171" }}>
@@ -476,12 +515,13 @@ export default function DashboardPage() {
               </Field>
 
               <Field label="Asset Type">
-                <select value={assetType} onChange={(e) => setAssetType(e.target.value)} className="field-input appearance-none">
+                <select value={assetType} onChange={(e) => { setAssetType(e.target.value); if (e.target.value === "SAVINGS_ACC") setCompFrequency("QUARTERLY"); }} className="field-input appearance-none">
                   <option value="MUTUAL_FUND">Mutual Fund</option>
                   <option value="CRYPTO">Crypto</option>
                   <option value="FD">Fixed Deposit (FD)</option>
                   <option value="RD">Recurring Deposit (RD)</option>
                   <option value="PPF">PPF</option>
+                  <option value="SAVINGS_ACC">Savings Account</option>
                 </select>
               </Field>
 
@@ -530,19 +570,23 @@ export default function DashboardPage() {
                 </>
               )}
 
-              {["FD","RD","PPF"].includes(assetType) && (
+              {["FD","RD","PPF","SAVINGS_ACC"].includes(assetType) && (
                 <>
                   <div className="grid grid-cols-2 gap-3">
-                    <Field label={assetType === "RD" ? "Monthly Deposit (₹)" : "Principal (₹)"}>
+                    <Field label={assetType === "RD" ? "Monthly Deposit (₹)" : assetType === "SAVINGS_ACC" ? "Current Balance (₹)" : "Principal (₹)"}>
                       <input value={principal} onChange={(e) => setPrincipal(e.target.value)}
-                        placeholder={assetType === "RD" ? "5000" : "100000"}
+                        placeholder={assetType === "RD" ? "5000" : assetType === "SAVINGS_ACC" ? "50000" : "100000"}
                         inputMode="decimal" className="field-input"/>
                     </Field>
-                    <Field label="Annual Rate (%)"><input value={annualRate} onChange={(e) => setAnnualRate(e.target.value)} placeholder="7.5" inputMode="decimal" className="field-input"/></Field>
+                    <Field label="Annual Rate (%)"><input value={annualRate} onChange={(e) => setAnnualRate(e.target.value)} placeholder={assetType === "SAVINGS_ACC" ? "3.5" : "7.5"} inputMode="decimal" className="field-input"/></Field>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Field label="Start Date"><input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="field-input"/></Field>
-                    <Field label="Maturity Date (opt)"><input type="date" value={maturityDate} onChange={(e) => setMaturityDate(e.target.value)} className="field-input"/></Field>
+                  <div className={assetType === "SAVINGS_ACC" ? "" : "grid grid-cols-2 gap-3"}>
+                    <Field label={assetType === "SAVINGS_ACC" ? "Date Opened" : "Start Date"}>
+                      <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="field-input"/>
+                    </Field>
+                    {assetType !== "SAVINGS_ACC" && (
+                      <Field label="Maturity Date (opt)"><input type="date" value={maturityDate} onChange={(e) => setMaturityDate(e.target.value)} className="field-input"/></Field>
+                    )}
                   </div>
                   <Field label="Compounding">
                     <select value={compFrequency} onChange={(e) => setCompFrequency(e.target.value)} className="field-input appearance-none">
@@ -551,6 +595,11 @@ export default function DashboardPage() {
                       <option value="YEARLY">Yearly</option>
                     </select>
                   </Field>
+                  {assetType === "SAVINGS_ACC" && (
+                    <div className="rounded-lg px-3 py-2" style={{ background: "rgba(52,211,153,0.07)", border: "1px solid rgba(52,211,153,0.18)" }}>
+                      <p className="text-[10px] text-emerald-300/80">Savings account — always liquid. Use Top Up to add deposits later.</p>
+                    </div>
+                  )}
                 </>
               )}
             </div>
