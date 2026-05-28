@@ -54,7 +54,7 @@ export default function NetWorthChart({ snapshots }: { snapshots: Snapshot[] }) 
   return (
     <section
       className="rounded-xl p-5"
-      style={{ background: "var(--bg-surface)", border: "1px solid rgba(255,255,255,0.06)" }}
+      style={{ background: "linear-gradient(160deg, rgba(245,158,11,0.07) 0%, rgba(167,139,250,0.04) 50%, var(--bg-surface) 100%)", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 1px 40px rgba(0,0,0,0.4)" }}
     >
       <div className="mb-4 flex items-center justify-between">
         <div>

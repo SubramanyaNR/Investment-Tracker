@@ -27,18 +27,18 @@ type Dashboard = {
   pnl_percent?: number;
 };
 
-const TYPE_CFG: Record<string, { dot: string; badge: string }> = {
-  CRYPTO:      { dot: "bg-amber-400",   badge: "border-amber-400/20 bg-amber-400/[0.08] text-amber-300" },
-  MUTUAL_FUND: { dot: "bg-violet-400",  badge: "border-violet-400/20 bg-violet-400/[0.08] text-violet-300" },
-  FD:          { dot: "bg-sky-400",     badge: "border-sky-400/20 bg-sky-400/[0.08] text-sky-300" },
-  RD:          { dot: "bg-sky-400",     badge: "border-sky-400/20 bg-sky-400/[0.08] text-sky-300" },
-  PPF:         { dot: "bg-emerald-400", badge: "border-emerald-400/20 bg-emerald-400/[0.08] text-emerald-300" },
+const TYPE_CFG: Record<string, { dot: string; badge: string; rowAccent: string }> = {
+  CRYPTO:      { dot: "bg-amber-400",   badge: "border-amber-400/30 bg-amber-400/[0.14] text-amber-300",   rowAccent: "rgba(245,158,11,0.04)" },
+  MUTUAL_FUND: { dot: "bg-violet-400",  badge: "border-violet-400/30 bg-violet-400/[0.14] text-violet-300", rowAccent: "rgba(167,139,250,0.03)" },
+  FD:          { dot: "bg-sky-400",     badge: "border-sky-400/30 bg-sky-400/[0.14] text-sky-300",          rowAccent: "rgba(56,189,248,0.03)" },
+  RD:          { dot: "bg-sky-400",     badge: "border-sky-400/30 bg-sky-400/[0.14] text-sky-300",          rowAccent: "rgba(56,189,248,0.03)" },
+  PPF:         { dot: "bg-emerald-400", badge: "border-emerald-400/30 bg-emerald-400/[0.14] text-emerald-300", rowAccent: "rgba(52,211,153,0.03)" },
 };
 
 const TX_CFG: Record<string, { color: string; bg: string; border: string }> = {
-  BUY:     { color: "#34d399", bg: "rgba(52,211,153,0.08)",  border: "rgba(52,211,153,0.2)" },
-  SELL:    { color: "#f87171", bg: "rgba(248,113,113,0.08)", border: "rgba(248,113,113,0.2)" },
-  DEPOSIT: { color: "#818cf8", bg: "rgba(129,140,248,0.08)", border: "rgba(129,140,248,0.2)" },
+  BUY:     { color: "#34d399", bg: "rgba(52,211,153,0.12)",  border: "rgba(52,211,153,0.3)" },
+  SELL:    { color: "#f87171", bg: "rgba(248,113,113,0.12)", border: "rgba(248,113,113,0.3)" },
+  DEPOSIT: { color: "#818cf8", bg: "rgba(129,140,248,0.12)", border: "rgba(129,140,248,0.3)" },
 };
 
 function inr(n: number) {
@@ -200,15 +200,18 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen" style={{ background: "var(--bg-base)" }}>
-      <div className="pointer-events-none fixed inset-0 z-0" style={{ backgroundImage: "radial-gradient(rgba(255,255,255,0.028) 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
-      <div className="pointer-events-none fixed inset-x-0 top-0 z-0 h-px" style={{ background: "linear-gradient(90deg, transparent 0%, rgba(245,158,11,0.4) 50%, transparent 100%)" }} />
+      {/* Background ambience */}
+      <div className="pointer-events-none fixed inset-0 z-0" style={{ backgroundImage: "radial-gradient(rgba(255,255,255,0.032) 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
+      <div className="pointer-events-none fixed inset-0 z-0" style={{ background: "radial-gradient(ellipse 80% 40% at 20% 0%, rgba(245,158,11,0.07) 0%, transparent 60%)" }} />
+      <div className="pointer-events-none fixed inset-0 z-0" style={{ background: "radial-gradient(ellipse 60% 50% at 80% 100%, rgba(167,139,250,0.06) 0%, transparent 60%)" }} />
+      <div className="pointer-events-none fixed inset-x-0 top-0 z-0 h-px" style={{ background: "linear-gradient(90deg, transparent 0%, rgba(245,158,11,0.5) 50%, transparent 100%)" }} />
 
       <div className="relative z-10 mx-auto max-w-screen-xl px-6 py-5 space-y-6">
 
         {/* Header */}
-        <header className="flex flex-col gap-4 pb-5 sm:flex-row sm:items-center sm:justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+        <header className="flex flex-col gap-4 pb-5 sm:flex-row sm:items-center sm:justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ background: "linear-gradient(135deg, rgba(245,158,11,0.18) 0%, rgba(251,191,36,0.1) 100%)", border: "1px solid rgba(245,158,11,0.28)", boxShadow: "0 0 20px rgba(245,158,11,0.1)" }}>
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ background: "linear-gradient(135deg, rgba(245,158,11,0.22) 0%, rgba(251,191,36,0.12) 100%)", border: "1px solid rgba(245,158,11,0.35)", boxShadow: "0 0 24px rgba(245,158,11,0.14)" }}>
               <svg className="h-4 w-4 text-amber-400" viewBox="0 0 16 16" fill="none">
                 <polyline points="1,13 5,8 9,10.5 15,3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
                 <circle cx="15" cy="3" r="1.5" fill="currentColor"/>
@@ -217,16 +220,18 @@ export default function DashboardPage() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-sm font-semibold tracking-tight text-slate-100">Investment Tracker</h1>
-                <span className="flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider" style={{ background: "rgba(52,211,153,0.09)", border: "1px solid rgba(52,211,153,0.22)", color: "#34d399" }}>
+                <span className="flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider" style={{ background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.3)", color: "#34d399" }}>
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />Live
                 </span>
               </div>
-              <p className="mt-0.5 text-[11px] text-slate-600">Portfolio Command Center</p>
+              <p className="mt-0.5 text-[11px] text-slate-500">Portfolio Command Center</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {lastRefreshed && <p className="hidden text-[11px] text-slate-700 sm:block">Updated {lastRefreshed.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</p>}
-            <button type="button" onClick={refreshValuations} disabled={refreshing} className="flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-medium transition-colors hover:bg-amber-400/[0.06] disabled:opacity-50" style={{ border: "1px solid rgba(245,158,11,0.28)", color: "#f59e0b" }}>
+            {lastRefreshed && <p className="hidden text-[11px] text-slate-600 sm:block">Updated {lastRefreshed.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</p>}
+            <button type="button" onClick={refreshValuations} disabled={refreshing}
+              className="flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-medium transition-all hover:bg-amber-400/[0.09] disabled:opacity-50"
+              style={{ border: "1px solid rgba(245,158,11,0.35)", color: "#f59e0b", background: "rgba(245,158,11,0.06)" }}>
               <svg className={`h-3 w-3 ${refreshing ? "animate-spin" : ""}`} viewBox="0 0 16 16" fill="none">
                 <path d="M14 8A6 6 0 1 1 8 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                 <path d="M13.5 2v3.5H10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -238,9 +243,9 @@ export default function DashboardPage() {
 
         {/* Error */}
         {error && (
-          <div className="flex items-center gap-3 rounded-lg px-4 py-3 text-sm" style={{ background: "rgba(248,113,113,0.07)", border: "1px solid rgba(248,113,113,0.2)" }}>
+          <div className="flex items-center gap-3 rounded-lg px-4 py-3 text-sm" style={{ background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.3)" }}>
             <svg className="h-3.5 w-3.5 shrink-0 text-red-400" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3"/><path d="M8 5v3.5M8 10.8h.01" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-            <span className="text-red-300/90">{error}</span>
+            <span className="text-red-300">{error}</span>
             <button onClick={() => setError("")} className="ml-auto text-base leading-none text-red-500 hover:text-red-300">×</button>
           </div>
         )}
@@ -259,30 +264,31 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_360px]">
 
           {/* Holdings Table */}
-          <section className="overflow-hidden rounded-xl" style={{ background: "var(--bg-surface)", border: "1px solid rgba(255,255,255,0.06)" }}>
-            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+          <section className="overflow-hidden rounded-xl" style={{ background: "linear-gradient(160deg, rgba(245,158,11,0.04) 0%, var(--bg-surface) 25%)", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 1px 40px rgba(0,0,0,0.4)" }}>
+            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.02)" }}>
               <div>
-                <h2 className="text-sm font-semibold text-slate-200">Holdings</h2>
-                <p className="mt-0.5 text-[11px] text-slate-600">Active positions · click Refresh to update values</p>
+                <h2 className="text-sm font-semibold text-slate-100">Holdings</h2>
+                <p className="mt-0.5 text-[11px] text-slate-500">Active positions · click Refresh to update values</p>
               </div>
-              <span className="rounded-full px-2.5 py-1 text-[10px] font-semibold" style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)", color: "#f59e0b" }}>
+              <span className="rounded-full px-2.5 py-1 text-[10px] font-semibold" style={{ background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.3)", color: "#f59e0b" }}>
                 {assets.length} {assets.length === 1 ? "position" : "positions"}
               </span>
             </div>
 
             {assets.length > 0 && (
-              <div className="grid min-w-[640px] px-5 py-2.5 text-[9px] font-bold uppercase tracking-[0.13em] text-slate-700" style={{ gridTemplateColumns: "minmax(0,1fr) 100px 110px 110px 110px minmax(130px,160px)", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+              <div className="grid min-w-[640px] px-5 py-2.5 text-[9px] font-bold uppercase tracking-[0.13em] text-slate-600"
+                style={{ gridTemplateColumns: "minmax(0,1fr) 100px 110px 110px 110px minmax(130px,160px)", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.015)" }}>
                 <span>Asset</span><span>Type</span><span>Invested</span><span>Current</span><span>P&amp;L</span><span>Actions</span>
               </div>
             )}
 
             {assets.length === 0 ? (
               <div className="flex flex-col items-center justify-center px-5 py-16 text-center">
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                  <svg className="h-5 w-5 text-slate-700" viewBox="0 0 20 20" fill="none"><rect x="3" y="7" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M7 7V5a3 3 0 0 1 6 0v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.09)" }}>
+                  <svg className="h-5 w-5 text-slate-600" viewBox="0 0 20 20" fill="none"><rect x="3" y="7" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M7 7V5a3 3 0 0 1 6 0v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
                 </div>
-                <p className="text-sm font-medium text-slate-500">No positions yet</p>
-                <p className="mt-1 text-[11px] text-slate-700">Use the form to record your first holding →</p>
+                <p className="text-sm font-medium text-slate-400">No positions yet</p>
+                <p className="mt-1 text-[11px] text-slate-600">Use the form to record your first holding →</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -292,26 +298,35 @@ export default function DashboardPage() {
                   const pnlPos = val ? val.pnl >= 0 : true;
 
                   return (
-                    <div key={asset.id} className="group grid min-w-[640px] items-center px-5 transition-colors hover:bg-white/[0.017]"
-                      style={{ gridTemplateColumns: "minmax(0,1fr) 100px 110px 110px 110px minmax(130px,160px)", paddingTop: "11px", paddingBottom: "11px", borderBottom: idx < assets.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
+                    <div key={asset.id}
+                      className="group grid min-w-[640px] items-center px-5 transition-colors"
+                      style={{
+                        gridTemplateColumns: "minmax(0,1fr) 100px 110px 110px 110px minmax(130px,160px)",
+                        paddingTop: "12px",
+                        paddingBottom: "12px",
+                        borderBottom: idx < assets.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none",
+                        background: `linear-gradient(90deg, ${cfg.rowAccent} 0%, transparent 40%)`,
+                      }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.03)"; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = `linear-gradient(90deg, ${cfg.rowAccent} 0%, transparent 40%)`; }}>
 
                       {/* Asset name + sub-line */}
                       <div className="flex min-w-0 items-center gap-2.5">
-                        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${cfg.dot}`} />
+                        <span className={`h-2 w-2 shrink-0 rounded-full ${cfg.dot}`} style={{ boxShadow: `0 0 6px currentColor` }} />
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-slate-200">{asset.name}</p>
+                          <p className="truncate text-sm font-medium text-slate-100">{asset.name}</p>
                           {asset.holding && (
                             <p className="mt-0.5 text-[10px] text-slate-500">
-                              <span className="font-semibold text-amber-400/80">{fmtQty(asset.holding.quantity)} {asset.holding.symbol}</span>
+                              <span className="font-semibold text-amber-400">{fmtQty(asset.holding.quantity)} {asset.holding.symbol.toUpperCase()}</span>
                               <span className="mx-1.5 text-slate-700">·</span>
                               <span>Avg {inr(asset.holding.avg_buy_price)}</span>
                               <span className="mx-1.5 text-slate-700">·</span>
-                              <span className={asset.liquidity_tier === "LIQUID" ? "text-emerald-500" : "text-orange-400"}>{asset.liquidity_tier === "LIQUID" ? "Liquid" : "Locked"}</span>
+                              <span className={asset.liquidity_tier === "LIQUID" ? "text-emerald-400" : "text-orange-400"}>{asset.liquidity_tier === "LIQUID" ? "Liquid" : "Locked"}</span>
                             </p>
                           )}
                           {asset.fi_holding && (
                             <p className="mt-0.5 text-[10px] text-slate-500">
-                              <span className="font-semibold text-sky-400/80">{inr(asset.fi_holding.principal)}</span>
+                              <span className="font-semibold text-sky-400">{inr(asset.fi_holding.principal)}</span>
                               <span className="mx-1.5 text-slate-700">·</span>
                               <span>{asset.fi_holding.annual_rate}% p.a. {asset.fi_holding.compounding_frequency.toLowerCase()}</span>
                               <span className="mx-1.5 text-slate-700">·</span>
@@ -319,7 +334,7 @@ export default function DashboardPage() {
                             </p>
                           )}
                           {!asset.holding && !asset.fi_holding && (
-                            <p className="text-[10px] text-slate-600 capitalize">{asset.category} · {asset.liquidity_tier === "LIQUID" ? <span className="text-emerald-500">Liquid</span> : <span className="text-orange-400">Locked</span>}</p>
+                            <p className="text-[10px] text-slate-600 capitalize">{asset.category} · {asset.liquidity_tier === "LIQUID" ? <span className="text-emerald-400">Liquid</span> : <span className="text-orange-400">Locked</span>}</p>
                           )}
                         </div>
                       </div>
@@ -333,7 +348,7 @@ export default function DashboardPage() {
                       <span className="text-xs text-slate-400">{val ? inr(val.invested_amount) : <span className="text-slate-700">—</span>}</span>
 
                       {/* Current */}
-                      <span className="text-xs text-slate-200">{val ? inr(val.current_value) : <span className="text-slate-700">—</span>}</span>
+                      <span className="text-xs font-medium text-slate-100">{val ? inr(val.current_value) : <span className="text-slate-700">—</span>}</span>
 
                       {/* P&L */}
                       {val ? (
@@ -361,14 +376,18 @@ export default function DashboardPage() {
                               placeholder="qty"
                               inputMode="decimal"
                               className="w-14 rounded-md px-2 py-1 text-[11px] text-slate-300 outline-none"
-                              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
+                              style={{ background: "rgba(255,255,255,0.055)", border: "1px solid rgba(255,255,255,0.11)" }}
                             />
-                            <button type="button" onClick={() => sellExistingCrypto(asset.id)} className="rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors hover:bg-amber-400/20" style={{ background: "rgba(251,191,36,0.07)", border: "1px solid rgba(251,191,36,0.18)", color: "#fbbf24" }}>
+                            <button type="button" onClick={() => sellExistingCrypto(asset.id)}
+                              className="rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors hover:bg-amber-400/25"
+                              style={{ background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.28)", color: "#fbbf24" }}>
                               Sell
                             </button>
                           </>
                         )}
-                        <button type="button" onClick={() => removeAsset(asset.id)} className="rounded-md px-2.5 py-1 text-[11px] font-medium opacity-0 transition-all group-hover:opacity-100 hover:bg-red-400/20" style={{ background: "rgba(248,113,113,0.06)", border: "1px solid rgba(248,113,113,0.14)", color: "#f87171" }}>
+                        <button type="button" onClick={() => removeAsset(asset.id)}
+                          className="rounded-md px-2.5 py-1 text-[11px] font-medium opacity-0 transition-all group-hover:opacity-100 hover:bg-red-400/25"
+                          style={{ background: "rgba(248,113,113,0.09)", border: "1px solid rgba(248,113,113,0.22)", color: "#f87171" }}>
                           Remove
                         </button>
                       </div>
@@ -380,10 +399,10 @@ export default function DashboardPage() {
           </section>
 
           {/* Add Position */}
-          <section className="rounded-xl p-5" style={{ background: "var(--bg-surface)", border: "1px solid rgba(255,255,255,0.06)" }}>
-            <div className="pb-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-              <h2 className="text-sm font-semibold text-slate-200">Add Position</h2>
-              <p className="mt-0.5 text-[11px] text-slate-600">Record a new holding in your portfolio</p>
+          <section className="rounded-xl p-5" style={{ background: "linear-gradient(160deg, rgba(245,158,11,0.08) 0%, var(--bg-surface) 35%)", border: "1px solid rgba(245,158,11,0.2)", boxShadow: "0 1px 40px rgba(0,0,0,0.4)" }}>
+            <div className="pb-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+              <h2 className="text-sm font-semibold text-slate-100">Add Position</h2>
+              <p className="mt-0.5 text-[11px] text-slate-500">Record a new holding in your portfolio</p>
             </div>
 
             <div className="mt-4 space-y-3.5">
@@ -408,9 +427,9 @@ export default function DashboardPage() {
                     <Field label="Quantity"><input value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="0.05" inputMode="decimal" className="field-input"/></Field>
                     <Field label="Avg Buy Price (₹)"><input value={avgBuyPrice} onChange={(e) => setAvgBuyPrice(e.target.value)} placeholder="9200000" inputMode="decimal" disabled={boughtAtCurrentPrice} className="field-input"/></Field>
                   </div>
-                  <label className="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2.5" style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                  <label className="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2.5" style={{ background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.18)" }}>
                     <input type="checkbox" checked={boughtAtCurrentPrice} onChange={(e) => handleBoughtAtCurrentPrice(e.target.checked)} className="h-3.5 w-3.5 accent-amber-400"/>
-                    <span className="text-xs text-slate-500">Bought at current market price</span>
+                    <span className="text-xs text-slate-400">Bought at current market price</span>
                     {selectedCrypto && boughtAtCurrentPrice && <span className="ml-auto text-xs font-semibold text-amber-400">₹{selectedCrypto.current_price.toLocaleString("en-IN")}</span>}
                   </label>
                 </>
@@ -437,7 +456,9 @@ export default function DashboardPage() {
               )}
             </div>
 
-            <button type="button" onClick={addAsset} disabled={loading} className="mt-5 w-full rounded-lg py-2.5 text-sm font-semibold tracking-wide transition-opacity disabled:opacity-50" style={{ background: "linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)", color: "#1c1000", boxShadow: "0 0 24px rgba(245,158,11,0.2)" }}>
+            <button type="button" onClick={addAsset} disabled={loading}
+              className="mt-5 w-full rounded-lg py-2.5 text-sm font-semibold tracking-wide transition-all disabled:opacity-50 hover:brightness-110"
+              style={{ background: "linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)", color: "#1c1000", boxShadow: "0 0 28px rgba(245,158,11,0.28), 0 2px 8px rgba(0,0,0,0.4)" }}>
               {loading ? "Adding…" : "Add Position"}
             </button>
           </section>
@@ -445,17 +466,20 @@ export default function DashboardPage() {
 
         {/* Transaction History */}
         {transactions.length > 0 && (
-          <section className="overflow-hidden rounded-xl" style={{ background: "var(--bg-surface)", border: "1px solid rgba(255,255,255,0.06)" }}>
-            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+          <section className="overflow-hidden rounded-xl" style={{ background: "linear-gradient(160deg, rgba(129,140,248,0.05) 0%, var(--bg-surface) 30%)", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 1px 40px rgba(0,0,0,0.4)" }}>
+            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.02)" }}>
               <div>
-                <h2 className="text-sm font-semibold text-slate-200">Transaction History</h2>
-                <p className="mt-0.5 text-[11px] text-slate-600">All recorded portfolio activity</p>
+                <h2 className="text-sm font-semibold text-slate-100">Transaction History</h2>
+                <p className="mt-0.5 text-[11px] text-slate-500">All recorded portfolio activity</p>
               </div>
-              <span className="text-[10px] text-slate-600">{transactions.length} records</span>
+              <span className="rounded-full px-2.5 py-1 text-[10px] font-semibold" style={{ background: "rgba(129,140,248,0.12)", border: "1px solid rgba(129,140,248,0.3)", color: "#818cf8" }}>
+                {transactions.length} records
+              </span>
             </div>
 
             <div className="overflow-x-auto">
-              <div className="grid min-w-[560px] px-5 py-2.5 text-[9px] font-bold uppercase tracking-[0.13em] text-slate-700" style={{ gridTemplateColumns: "100px 1fr 70px 90px 110px 110px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+              <div className="grid min-w-[560px] px-5 py-2.5 text-[9px] font-bold uppercase tracking-[0.13em] text-slate-600"
+                style={{ gridTemplateColumns: "100px 1fr 70px 90px 110px 110px", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.015)" }}>
                 <span>Date</span><span>Asset</span><span>Type</span><span>Units</span><span>Price/Unit</span><span>Amount</span>
               </div>
 
@@ -463,19 +487,20 @@ export default function DashboardPage() {
                 const tCfg = TX_CFG[tx.transaction_type] ?? TX_CFG.BUY;
                 const assetCfg = TYPE_CFG[tx.asset_type] ?? TYPE_CFG.MUTUAL_FUND;
                 return (
-                  <div key={tx.id} className="grid min-w-[560px] items-center px-5 py-2.5 text-xs transition-colors hover:bg-white/[0.015]"
-                    style={{ gridTemplateColumns: "100px 1fr 70px 90px 110px 110px", borderBottom: idx < Math.min(transactions.length, 50) - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
-                    <span className="font-mono text-[10px] text-slate-600">{tx.transaction_date}</span>
+                  <div key={tx.id}
+                    className="grid min-w-[560px] items-center px-5 py-2.5 text-xs transition-colors hover:bg-white/[0.025]"
+                    style={{ gridTemplateColumns: "100px 1fr 70px 90px 110px 110px", borderBottom: idx < Math.min(transactions.length, 50) - 1 ? "1px solid rgba(255,255,255,0.05)" : "none" }}>
+                    <span className="font-mono text-[10px] text-slate-500">{tx.transaction_date}</span>
                     <div className="flex min-w-0 items-center gap-2">
                       <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${assetCfg.dot}`}/>
                       <span className="truncate text-slate-300">{tx.asset_name}</span>
                     </div>
                     <span>
-                      <span className="rounded border px-1.5 py-0.5 text-[9px] font-bold uppercase" style={{ background: tCfg.bg, border: `1px solid ${tCfg.border}`, color: tCfg.color }}>{tx.transaction_type}</span>
+                      <span className="rounded border px-1.5 py-0.5 text-[9px] font-bold uppercase" style={{ background: tCfg.bg, borderColor: tCfg.border, color: tCfg.color }}>{tx.transaction_type}</span>
                     </span>
                     <span className="font-mono text-[11px] text-slate-400">{tx.units != null ? fmtQty(tx.units) : "—"}</span>
                     <span className="font-mono text-[11px] text-slate-400">{tx.price_per_unit != null ? inr(tx.price_per_unit) : "—"}</span>
-                    <span className="font-mono text-[11px] text-slate-200">{tx.amount > 0 ? inr(tx.amount) : "—"}</span>
+                    <span className="font-mono text-[11px] text-slate-100">{tx.amount > 0 ? inr(tx.amount) : "—"}</span>
                   </div>
                 );
               })}
@@ -493,27 +518,51 @@ export default function DashboardPage() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-700">{label}</p>
+      <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-600">{label}</p>
       {children}
     </div>
   );
 }
 
 const ACCENT = {
-  amber:   { bar: "rgba(245,158,11,0.6)",   border: "rgba(245,158,11,0.14)",   glow: "rgba(245,158,11,0.06)",   label: "#f59e0b" },
-  violet:  { bar: "rgba(167,139,250,0.55)",  border: "rgba(167,139,250,0.12)",  glow: "rgba(167,139,250,0.06)",  label: "#a78bfa" },
-  emerald: { bar: "rgba(52,211,153,0.55)",   border: "rgba(52,211,153,0.12)",   glow: "rgba(52,211,153,0.06)",   label: "#34d399" },
-  red:     { bar: "rgba(248,113,113,0.55)",  border: "rgba(248,113,113,0.12)",  glow: "rgba(248,113,113,0.06)",  label: "#f87171" },
+  amber: {
+    bg: "linear-gradient(135deg, rgba(245,158,11,0.22) 0%, rgba(245,158,11,0.08) 45%, var(--bg-surface) 100%)",
+    border: "rgba(245,158,11,0.35)",
+    bar: "linear-gradient(90deg, #f59e0b 0%, rgba(245,158,11,0.4) 60%, transparent 100%)",
+    glow: "0 0 50px rgba(245,158,11,0.12), 0 1px 40px rgba(0,0,0,0.5)",
+    label: "#fbbf24",
+  },
+  violet: {
+    bg: "linear-gradient(135deg, rgba(167,139,250,0.2) 0%, rgba(167,139,250,0.07) 45%, var(--bg-surface) 100%)",
+    border: "rgba(167,139,250,0.3)",
+    bar: "linear-gradient(90deg, #a78bfa 0%, rgba(167,139,250,0.4) 60%, transparent 100%)",
+    glow: "0 0 50px rgba(167,139,250,0.1), 0 1px 40px rgba(0,0,0,0.5)",
+    label: "#c4b5fd",
+  },
+  emerald: {
+    bg: "linear-gradient(135deg, rgba(52,211,153,0.18) 0%, rgba(52,211,153,0.06) 45%, var(--bg-surface) 100%)",
+    border: "rgba(52,211,153,0.28)",
+    bar: "linear-gradient(90deg, #34d399 0%, rgba(52,211,153,0.4) 60%, transparent 100%)",
+    glow: "0 0 50px rgba(52,211,153,0.1), 0 1px 40px rgba(0,0,0,0.5)",
+    label: "#6ee7b7",
+  },
+  red: {
+    bg: "linear-gradient(135deg, rgba(248,113,113,0.18) 0%, rgba(248,113,113,0.06) 45%, var(--bg-surface) 100%)",
+    border: "rgba(248,113,113,0.28)",
+    bar: "linear-gradient(90deg, #f87171 0%, rgba(248,113,113,0.4) 60%, transparent 100%)",
+    glow: "0 0 50px rgba(248,113,113,0.1), 0 1px 40px rgba(0,0,0,0.5)",
+    label: "#fca5a5",
+  },
 };
 
 function KpiCard({ label, value, sub, accent }: { label: string; value: string; sub: string; accent: keyof typeof ACCENT }) {
   const a = ACCENT[accent];
   return (
-    <div className="relative overflow-hidden rounded-xl p-5" style={{ background: `radial-gradient(ellipse at 100% 0%, ${a.glow} 0%, transparent 60%), var(--bg-surface)`, border: `1px solid ${a.border}` }}>
-      <div className="absolute inset-x-0 top-0 h-px" style={{ background: `linear-gradient(90deg, ${a.bar} 0%, transparent 70%)` }}/>
+    <div className="relative overflow-hidden rounded-xl p-5" style={{ background: a.bg, border: `1px solid ${a.border}`, boxShadow: a.glow }}>
+      <div className="absolute inset-x-0 top-0 h-[2px]" style={{ background: a.bar }} />
       <p className="text-[9px] font-bold uppercase tracking-[0.18em]" style={{ color: a.label }}>{label}</p>
-      <p className="mt-3 text-[26px] font-bold leading-none tracking-tight text-white">{value}</p>
-      <p className="mt-2 text-[11px] text-slate-600">{sub}</p>
+      <p className="mt-3 text-[28px] font-bold leading-none tracking-tight text-white">{value}</p>
+      <p className="mt-2 text-[11px] text-slate-500">{sub}</p>
     </div>
   );
 }
