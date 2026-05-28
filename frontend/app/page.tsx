@@ -82,6 +82,8 @@ export default function DashboardPage() {
   const [mfNav, setMfNav] = useState("");
   const [mfSip, setMfSip] = useState("");
 
+  const [rdTotalInvested, setRdTotalInvested] = useState("");
+
   const [sellQuantities, setSellQuantities] = useState<Record<string, string>>({});
   const [redeemUnits, setRedeemUnits] = useState<Record<string, string>>({});
   const [depositAmounts, setDepositAmounts] = useState<Record<string, string>>({});
@@ -126,6 +128,21 @@ export default function DashboardPage() {
     setBoughtAtCurrentPrice(false); setPrincipal(""); setAnnualRate("");
     setStartDate(""); setMaturityDate(""); setCompFrequency("YEARLY");
     setSelectedFund(null); setMfAmount(""); setMfNav(""); setMfSip("");
+    setRdTotalInvested("");
+  }
+
+  function handleRdTotalInvested(total: string) {
+    setRdTotalInvested(total);
+    const monthly = Number(principal);
+    const totalNum = Number(total);
+    if (monthly > 0 && totalNum > 0) {
+      const months = Math.floor(totalNum / monthly);
+      if (months > 0) {
+        const d = new Date();
+        d.setMonth(d.getMonth() - (months - 1));
+        setStartDate(d.toISOString().slice(0, 10));
+      }
+    }
   }
 
   async function addAsset() {
@@ -472,7 +489,7 @@ export default function DashboardPage() {
                             </button>
                           </>
                         )}
-                        {asset.asset_type === "SAVINGS_ACC" && (
+                        {(asset.asset_type === "SAVINGS_ACC" || asset.asset_type === "PPF") && (
                           <>
                             <input
                               value={depositAmounts[asset.id] ?? ""}
@@ -485,7 +502,7 @@ export default function DashboardPage() {
                             <button type="button" onClick={() => topUpExistingSavings(asset.id)}
                               className="rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors hover:bg-emerald-400/25"
                               style={{ background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.28)", color: "#6ee7b7" }}>
-                              Top Up
+                              {asset.asset_type === "PPF" ? "Deposit" : "Top Up"}
                             </button>
                           </>
                         )}
@@ -580,6 +597,18 @@ export default function DashboardPage() {
                     </Field>
                     <Field label="Annual Rate (%)"><input value={annualRate} onChange={(e) => setAnnualRate(e.target.value)} placeholder={assetType === "SAVINGS_ACC" ? "3.5" : "7.5"} inputMode="decimal" className="field-input"/></Field>
                   </div>
+                  {assetType === "RD" && (
+                    <Field label="Amount already invested (₹) — optional">
+                      <input value={rdTotalInvested} onChange={(e) => handleRdTotalInvested(e.target.value)}
+                        placeholder="e.g. 60000 — auto-fills start date"
+                        inputMode="decimal" className="field-input"/>
+                      {rdTotalInvested && principal && Number(principal) > 0 && (
+                        <p className="mt-1 text-[10px] text-slate-500">
+                          ≈ <span className="text-sky-400 font-semibold">{Math.floor(Number(rdTotalInvested)/Number(principal))} months</span> — start date auto-filled below
+                        </p>
+                      )}
+                    </Field>
+                  )}
                   <div className={assetType === "SAVINGS_ACC" ? "" : "grid grid-cols-2 gap-3"}>
                     <Field label={assetType === "SAVINGS_ACC" ? "Date Opened" : "Start Date"}>
                       <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="field-input"/>
