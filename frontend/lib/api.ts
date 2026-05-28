@@ -1,6 +1,13 @@
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://172.23.80.6:8000";
 
+export type CryptoHoldingDetail = {
+  symbol: string;
+  coingecko_id: string;
+  quantity: number;
+  avg_buy_price: number;
+};
+
 export type Asset = {
   id: string;
   name: string;
@@ -8,6 +15,7 @@ export type Asset = {
   category: string;
   liquidity_tier: string;
   created_at: string;
+  holding?: CryptoHoldingDetail;
 };
 
 export type CryptoMarket = {
