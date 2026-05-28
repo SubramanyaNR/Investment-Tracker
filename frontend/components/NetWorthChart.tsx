@@ -1,19 +1,13 @@
 "use client";
 
 import {
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
+  ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
 } from "recharts";
 import type { Snapshot } from "@/lib/api";
 
 function fmt(v: number) {
   if (v >= 10_000_000) return "₹" + (v / 10_000_000).toFixed(1) + "Cr";
-  if (v >= 100_000) return "₹" + (v / 100_000).toFixed(1) + "L";
+  if (v >= 100_000)    return "₹" + (v / 100_000).toFixed(1) + "L";
   return "₹" + v.toLocaleString("en-IN");
 }
 
@@ -24,15 +18,9 @@ function ChartTooltip({ active, payload, label }: {
 }) {
   if (!active || !payload?.length) return null;
   return (
-    <div
-      className="rounded-lg px-3 py-2.5 text-xs"
-      style={{
-        background: "#0e0e18",
-        border: "1px solid rgba(255,255,255,0.1)",
-        boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
-      }}
-    >
-      <p className="mb-1.5 text-[10px] text-slate-600">{label}</p>
+    <div className="rounded-lg px-3 py-2.5 text-xs"
+      style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)", boxShadow: "var(--shadow-elevated)" }}>
+      <p className="mb-1.5 text-[10px]" style={{ color: "var(--text-muted)" }}>{label}</p>
       {payload.map((p) => (
         <p key={p.name} className="font-semibold" style={{ color: p.color }}>
           {p.name}: {fmt(p.value)}
@@ -48,74 +36,44 @@ export default function NetWorthChart({ snapshots }: { snapshots: Snapshot[] }) 
   const data = snapshots.map((s) => ({
     date: s.snapshot_date,
     "Net Worth": s.total_value,
-    "Invested": s.total_invested,
+    "Invested":  s.total_invested,
   }));
 
   return (
-    <section
-      className="rounded-xl p-5"
-      style={{ background: "linear-gradient(160deg, rgba(245,158,11,0.07) 0%, rgba(167,139,250,0.04) 50%, var(--bg-surface) 100%)", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 1px 40px rgba(0,0,0,0.4)" }}
-    >
+    <section className="card card-amber rounded-xl p-5">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-semibold text-slate-200">Net Worth Over Time</h2>
-          <p className="mt-0.5 text-[11px] text-slate-600">
-            {snapshots.length} {snapshots.length === 1 ? "snapshot" : "snapshots"} — refreshes daily
+          <h2 className="section-title">Net Worth Over Time</h2>
+          <p className="section-sub">
+            {snapshots.length} {snapshots.length === 1 ? "snapshot" : "snapshots"} · refreshes daily
           </p>
         </div>
         {snapshots.length === 1 && (
-          <span className="text-[10px] text-slate-700">More data builds with each daily refresh</span>
+          <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>More data builds with each daily refresh</span>
         )}
       </div>
 
       <ResponsiveContainer width="100%" height={210}>
         <LineChart data={data} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-          <CartesianGrid
-            strokeDasharray="3 3"
-            stroke="rgba(255,255,255,0.04)"
-            vertical={false}
-          />
-          <XAxis
-            dataKey="date"
-            tick={{ fontSize: 9, fill: "#475569" }}
-            tickLine={false}
-            axisLine={false}
-          />
-          <YAxis
-            tickFormatter={fmt}
-            tick={{ fontSize: 9, fill: "#475569" }}
-            tickLine={false}
-            axisLine={false}
-            width={64}
-          />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" vertical={false} />
+          <XAxis dataKey="date" tick={{ fontSize: 9, fill: "var(--text-muted)" }} tickLine={false} axisLine={false} />
+          <YAxis tickFormatter={fmt} tick={{ fontSize: 9, fill: "var(--text-muted)" }} tickLine={false} axisLine={false} width={64} />
           <Tooltip content={<ChartTooltip />} />
-          <Line
-            type="monotone"
-            dataKey="Net Worth"
-            stroke="#f59e0b"
-            strokeWidth={2}
+          <Line type="monotone" dataKey="Net Worth" stroke="#f59e0b" strokeWidth={2}
             dot={snapshots.length === 1 ? { fill: "#f59e0b", r: 4 } : false}
-            activeDot={{ r: 4, fill: "#f59e0b" }}
-          />
-          <Line
-            type="monotone"
-            dataKey="Invested"
-            stroke="#a78bfa"
-            strokeWidth={1.5}
-            strokeDasharray="5 3"
-            dot={false}
-            activeDot={{ r: 3, fill: "#a78bfa" }}
-          />
+            activeDot={{ r: 4, fill: "#f59e0b" }} />
+          <Line type="monotone" dataKey="Invested" stroke="#a78bfa" strokeWidth={1.5}
+            strokeDasharray="5 3" dot={false} activeDot={{ r: 3, fill: "#a78bfa" }} />
         </LineChart>
       </ResponsiveContainer>
 
       <div className="mt-3 flex items-center gap-5">
-        <span className="flex items-center gap-1.5 text-[10px] text-slate-600">
-          <span className="h-[2px] w-5 rounded-full bg-amber-400" />
-          Net Worth
+        <span className="flex items-center gap-1.5 text-[10px]" style={{ color: "var(--text-secondary)" }}>
+          <span className="h-[2px] w-5 rounded-full bg-amber-400" />Net Worth
         </span>
-        <span className="flex items-center gap-1.5 text-[10px] text-slate-600">
-          <span className="h-[2px] w-5 rounded-full bg-violet-400 opacity-60" style={{ backgroundImage: "repeating-linear-gradient(90deg,#a78bfa 0,#a78bfa 4px,transparent 4px,transparent 7px)" }} />
+        <span className="flex items-center gap-1.5 text-[10px]" style={{ color: "var(--text-secondary)" }}>
+          <span className="h-[2px] w-5 rounded-full bg-violet-400 opacity-60"
+            style={{ backgroundImage: "repeating-linear-gradient(90deg,#a78bfa 0,#a78bfa 4px,transparent 4px,transparent 7px)" }} />
           Invested
         </span>
       </div>
