@@ -90,3 +90,15 @@ class FixedIncomeHolding(Base):
     start_date = mapped_column(Date, nullable=False)
     maturity_date = mapped_column(Date, nullable=True)
     compounding_frequency: Mapped[str] = mapped_column(String, nullable=False)
+
+
+class MutualFundHolding(Base):
+    __tablename__ = "mutual_fund_holdings"
+
+    asset_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("assets.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    scheme_code: Mapped[str] = mapped_column(String, nullable=False)
+    units = mapped_column(Numeric(24, 10), nullable=False)
+    nav_at_purchase = mapped_column(Numeric(18, 6), nullable=False)
