@@ -57,7 +57,7 @@ export default function CryptoSelector({ selected, onSelect }: Props) {
         style={{
           background: "rgba(255,255,255,0.035)",
           border: open
-            ? "1px solid rgba(34,211,238,0.4)"
+            ? "1px solid rgba(245,158,11,0.45)"
             : "1px solid rgba(255,255,255,0.08)",
           color: selected ? "#cbd5e1" : "rgba(255,255,255,0.18)",
         }}
@@ -130,7 +130,7 @@ export default function CryptoSelector({ selected, onSelect }: Props) {
                       {coin.name}
                     </span>
                     <span className="text-[10px] text-slate-600">{coin.symbol}</span>
-                    <span className="text-[10px] font-semibold text-cyan-400">
+                    <span className="text-[10px] font-semibold text-amber-400">
                       ₹{coin.current_price.toLocaleString("en-IN")}
                     </span>
                   </button>
