@@ -445,8 +445,8 @@ class TopUpRequest(BaseModel):
 async def top_up_savings(asset_id: str, payload: TopUpRequest, session=Depends(get_session)):
     asset_result = await session.execute(select(Asset).where(Asset.id == asset_id))
     asset = asset_result.scalar_one_or_none()
-    if not asset or asset.asset_type != "SAVINGS_ACC":
-        raise HTTPException(status_code=404, detail="Savings account not found")
+    if not asset or asset.asset_type not in {"SAVINGS_ACC", "PPF"}:
+        raise HTTPException(status_code=404, detail="Asset does not support top-up")
     if payload.amount <= 0:
         raise HTTPException(status_code=400, detail="Top-up amount must be positive")
 
