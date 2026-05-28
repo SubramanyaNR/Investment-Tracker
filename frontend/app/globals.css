@@ -88,46 +88,50 @@
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   DESIGN TOKENS — Retro
+   DESIGN TOKENS — Retro  ·  SYNTHWAVE "Neon Night"
+   Inspired by: Blade Runner, Tron, Outrun, vaporwave
+   Palette: deep space purple · electric cyan · neon pink
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
 [data-theme="retro"] {
-  --bg-base:     #090800;
-  --bg-surface:  #0e0d00;
-  --bg-elevated: #141200;
-  --bg-overlay:  #1c1a00;
+  --bg-base:     #060010;
+  --bg-surface:  #0c001f;
+  --bg-elevated: #130030;
+  --bg-overlay:  #1b0045;
 
-  --border-subtle:  rgba(204,192,0,0.10);
-  --border-default: rgba(204,192,0,0.18);
-  --border-strong:  rgba(204,192,0,0.36);
+  --border-subtle:  rgba(247,37,133,0.08);
+  --border-default: rgba(247,37,133,0.18);
+  --border-strong:  rgba(247,37,133,0.38);
 
-  --text-primary:   #ddd600;
-  --text-secondary: #8a8300;
-  --text-muted:     #3d3700;
-  --text-dim:       rgba(204,192,0,0.20);
+  /* Primary text: electric cyan — readable on deep purple */
+  --text-primary:   #4cc9f0;
+  --text-secondary: #7b2fbe;
+  --text-muted:     #2d0054;
+  --text-dim:       rgba(76,201,240,0.18);
 
-  --shadow-card:     0 0 0 1px rgba(204,192,0,0.12), inset 0 0 40px rgba(204,192,0,0.018);
-  --shadow-elevated: 0 0 0 1px rgba(204,192,0,0.22), 0 8px 32px rgba(0,0,0,0.8);
+  --shadow-card:     0 0 0 1px rgba(247,37,133,0.14), 0 0 30px rgba(247,37,133,0.06), inset 0 0 60px rgba(76,201,240,0.015);
+  --shadow-elevated: 0 0 0 1px rgba(247,37,133,0.24), 0 8px 40px rgba(0,0,0,0.85), 0 0 20px rgba(247,37,133,0.08);
 
   --radius:    2px;
   --radius-sm: 2px;
   --radius-xs: 1px;
 
-  --input-bg:           rgba(204,192,0,0.05);
-  --input-border:       rgba(204,192,0,0.18);
-  --input-focus-border: rgba(221,214,0,0.55);
-  --input-focus-bg:     rgba(221,214,0,0.06);
-  --input-color:        #ddd600;
-  --input-placeholder:  rgba(204,192,0,0.22);
-  --input-option-bg:    #141200;
+  --input-bg:           rgba(76,201,240,0.04);
+  --input-border:       rgba(247,37,133,0.22);
+  --input-focus-border: rgba(76,201,240,0.65);
+  --input-focus-bg:     rgba(76,201,240,0.06);
+  --input-color:        #4cc9f0;
+  --input-placeholder:  rgba(76,201,240,0.22);
+  --input-option-bg:    #130030;
 
-  --scrollbar:       rgba(204,192,0,0.14);
-  --scrollbar-hover: rgba(204,192,0,0.28);
+  --scrollbar:       rgba(247,37,133,0.22);
+  --scrollbar-hover: rgba(247,37,133,0.40);
 
-  --ambient-amber:  radial-gradient(ellipse 80% 40% at 18% 0%, rgba(204,192,0,0.04) 0%, transparent 60%);
-  --ambient-violet: radial-gradient(ellipse 60% 50% at 82% 100%, rgba(0,200,80,0.03) 0%, transparent 60%);
-  --dot-grid: radial-gradient(rgba(204,192,0,0.06) 1px, transparent 1px);
-  --header-line: linear-gradient(90deg, transparent 0%, rgba(204,192,0,0.40) 50%, transparent 100%);
+  /* Pink glow top-left, cyan glow bottom-right */
+  --ambient-amber:  radial-gradient(ellipse 80% 45% at 12% 0%,  rgba(247,37,133,0.09) 0%, transparent 65%);
+  --ambient-violet: radial-gradient(ellipse 70% 55% at 88% 100%, rgba(76,201,240,0.07) 0%, transparent 65%);
+  --dot-grid: radial-gradient(rgba(76,201,240,0.07) 1px, transparent 1px);
+  --header-line: linear-gradient(90deg, transparent 0%, rgba(247,37,133,0.70) 50%, transparent 100%);
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -165,7 +169,7 @@ body {
    RETRO EFFECTS
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
-/* CRT scanlines overlay */
+/* CRT scanlines overlay — subtle cyan-tinted lines */
 [data-theme="retro"] body::before {
   content: '';
   position: fixed;
@@ -176,9 +180,19 @@ body {
     0deg,
     transparent,
     transparent 2px,
-    rgba(0,0,0,0.065) 2px,
-    rgba(0,0,0,0.065) 4px
+    rgba(76,201,240,0.025) 2px,
+    rgba(76,201,240,0.025) 4px
   );
+}
+
+/* CRT vignette — darkened edges for that cathode-ray feel */
+[data-theme="retro"] body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 9997;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,10,0.50) 100%);
 }
 
 /* Flatten all border radii in retro */
@@ -243,7 +257,7 @@ body {
 }
 
 [data-theme="light"]  .card-header { background: rgba(0,0,0,0.018); }
-[data-theme="retro"]  .card-header { background: rgba(204,192,0,0.025); }
+[data-theme="retro"]  .card-header { background: rgba(247,37,133,0.025); }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    FIELD INPUT
@@ -312,9 +326,9 @@ body {
 [data-theme="retro"] .type-badge--violet,
 [data-theme="retro"] .type-badge--sky,
 [data-theme="retro"] .type-badge--emerald {
-  border-color: var(--border-strong);
-  background: rgba(204,192,0,0.08);
-  color: var(--text-primary);
+  border-color: rgba(76,201,240,0.30);
+  background: rgba(76,201,240,0.08);
+  color: #4cc9f0;
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -340,13 +354,9 @@ body {
 [data-theme="light"] .tx-badge--sell    { color: #991b1b; background: rgba(248,113,113,0.10); border-color: rgba(220,38,38,0.22); }
 [data-theme="light"] .tx-badge--deposit { color: #3730a3; background: rgba(129,140,248,0.10); border-color: rgba(99,102,241,0.22); }
 
-[data-theme="retro"] .tx-badge--buy,
-[data-theme="retro"] .tx-badge--sell,
-[data-theme="retro"] .tx-badge--deposit {
-  border-color: var(--border-strong);
-  background: rgba(204,192,0,0.08);
-  color: var(--text-primary);
-}
+[data-theme="retro"] .tx-badge--buy     { border-color: rgba(76,201,240,0.30); background: rgba(76,201,240,0.08); color: #4cc9f0; }
+[data-theme="retro"] .tx-badge--sell    { border-color: rgba(247,37,133,0.30); background: rgba(247,37,133,0.08); color: #f72585; }
+[data-theme="retro"] .tx-badge--deposit { border-color: rgba(76,201,240,0.22); background: rgba(76,201,240,0.06); color: #a78bfa; }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    KPI CARDS
@@ -356,7 +366,7 @@ body {
 .kpi-sub   { color: var(--text-muted); }
 
 [data-theme="light"] .kpi-value { color: #0d0e1f; }
-[data-theme="retro"] .kpi-value { color: var(--text-primary); }
+[data-theme="retro"] .kpi-value { color: #f72585; text-shadow: 0 0 20px rgba(247,37,133,0.55), 0 0 8px rgba(247,37,133,0.30); }
 
 .kpi-label--amber   { color: #fbbf24; }
 .kpi-label--violet  { color: #c4b5fd; }
@@ -371,7 +381,7 @@ body {
 [data-theme="retro"] .kpi-label--amber,
 [data-theme="retro"] .kpi-label--violet,
 [data-theme="retro"] .kpi-label--emerald,
-[data-theme="retro"] .kpi-label--red { color: var(--text-secondary); }
+[data-theme="retro"] .kpi-label--red { color: #4cc9f0; }
 
 /* Light mode overrides for KPI card backgrounds */
 [data-theme="light"] .kpi-amber  { background: linear-gradient(135deg, rgba(245,158,11,0.09) 0%, #fff 55%) !important; border-color: rgba(180,83,9,0.20) !important; box-shadow: 0 1px 12px rgba(180,83,9,0.06), 0 0 0 1px rgba(180,83,9,0.08) !important; }
@@ -427,7 +437,7 @@ body {
 
 [data-theme="light"] .tab-btn.active  { color: #b45309; border-bottom-color: #b45309; }
 [data-theme="retro"] .tab-btn         { letter-spacing: 0.06em; text-transform: uppercase; font-size: 0.65rem; }
-[data-theme="retro"] .tab-btn.active  { color: var(--text-primary); border-bottom-color: var(--text-primary); }
+[data-theme="retro"] .tab-btn.active  { color: #f72585; border-bottom-color: #f72585; text-shadow: 0 0 10px rgba(247,37,133,0.45); }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    THEME SWITCHER
@@ -463,6 +473,7 @@ body {
 .theme-btn:hover { color: var(--text-secondary); background: var(--bg-overlay); }
 .theme-btn.active { background: var(--bg-overlay); color: var(--text-primary); box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
 [data-theme="light"] .theme-btn.active { box-shadow: 0 1px 4px rgba(0,0,0,0.10); }
+[data-theme="retro"] .theme-btn.active { background: rgba(247,37,133,0.14); color: #f72585; box-shadow: 0 0 12px rgba(247,37,133,0.30); }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    HOLDINGS TABLE ROWS
@@ -471,7 +482,7 @@ body {
 .holdings-row { transition: background 0.12s; }
 .holdings-row:hover { background: rgba(255,255,255,0.028) !important; }
 [data-theme="light"]  .holdings-row:hover { background: rgba(0,0,0,0.025) !important; }
-[data-theme="retro"]  .holdings-row:hover { background: rgba(204,192,0,0.05) !important; }
+[data-theme="retro"]  .holdings-row:hover { background: rgba(247,37,133,0.05) !important; }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    DROPDOWN POPUP (CryptoSelector / MFSelector)
@@ -496,7 +507,7 @@ body {
 
 .dropdown-item:hover { background: rgba(255,255,255,0.04); }
 [data-theme="light"]  .dropdown-item:hover { background: rgba(0,0,0,0.04); }
-[data-theme="retro"]  .dropdown-item:hover { background: rgba(204,192,0,0.06); }
+[data-theme="retro"]  .dropdown-item:hover { background: rgba(247,37,133,0.06); }
 
 .dropdown-inner-search {
   width: 100%;
@@ -510,11 +521,11 @@ body {
   font-family: inherit;
 }
 [data-theme="light"]  .dropdown-inner-search { background: rgba(0,0,0,0.04); }
-[data-theme="retro"]  .dropdown-inner-search { background: rgba(204,192,0,0.05); }
+[data-theme="retro"]  .dropdown-inner-search { background: rgba(76,201,240,0.05); }
 .dropdown-inner-search::placeholder { color: var(--text-muted); }
 .dropdown-inner-search:focus { background: rgba(255,255,255,0.06); }
 [data-theme="light"]  .dropdown-inner-search:focus { background: rgba(0,0,0,0.06); }
-[data-theme="retro"]  .dropdown-inner-search:focus { background: rgba(204,192,0,0.08); }
+[data-theme="retro"]  .dropdown-inner-search:focus { background: rgba(76,201,240,0.08); }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    TRIGGER BUTTON (selector trigger)
@@ -567,10 +578,15 @@ body {
 .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
 
 [data-theme="retro"] .btn-primary {
-  background: rgba(204,192,0,0.12);
-  color: var(--text-primary);
-  border: 1px solid var(--border-strong);
-  box-shadow: none;
+  background: rgba(247,37,133,0.12);
+  color: #f72585;
+  border: 1px solid rgba(247,37,133,0.45);
+  box-shadow: 0 0 20px rgba(247,37,133,0.18), inset 0 0 20px rgba(247,37,133,0.04);
+}
+[data-theme="retro"] .btn-primary:hover:not(:disabled) {
+  background: rgba(247,37,133,0.20);
+  box-shadow: 0 0 32px rgba(247,37,133,0.30), inset 0 0 20px rgba(247,37,133,0.06);
+  filter: none;
 }
 
 .btn-refresh {
@@ -592,7 +608,8 @@ body {
 .btn-refresh:disabled { opacity: 0.45; cursor: not-allowed; }
 
 [data-theme="light"] .btn-refresh  { border-color: rgba(180,83,9,0.28); color: #b45309; background: rgba(245,158,11,0.07); }
-[data-theme="retro"] .btn-refresh  { border-color: var(--border-default); color: var(--text-primary); background: rgba(204,192,0,0.06); }
+[data-theme="retro"] .btn-refresh  { border-color: rgba(76,201,240,0.28); color: #4cc9f0; background: rgba(76,201,240,0.06); }
+[data-theme="retro"] .btn-refresh:hover:not(:disabled) { background: rgba(76,201,240,0.12); }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    ERROR BANNER
@@ -610,11 +627,11 @@ body {
 }
 
 [data-theme="light"] .error-banner { background: rgba(254,202,202,0.50); border-color: rgba(220,38,38,0.22); }
-[data-theme="retro"] .error-banner { background: rgba(230,60,0,0.10);    border-color: rgba(230,60,0,0.28); }
+[data-theme="retro"] .error-banner { background: rgba(247,37,133,0.10); border-color: rgba(247,37,133,0.28); }
 
 .error-text   { color: #fca5a5; }
 [data-theme="light"]  .error-text { color: #991b1b; }
-[data-theme="retro"]  .error-text { color: #ff6040; }
+[data-theme="retro"]  .error-text { color: #f72585; }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    LIVE BADGE in header
@@ -636,7 +653,7 @@ body {
 }
 
 [data-theme="light"]  .live-badge { background: rgba(5,150,105,0.09); border-color: rgba(5,150,105,0.22); color: #065f46; }
-[data-theme="retro"]  .live-badge { background: rgba(204,192,0,0.08); border-color: var(--border-default); color: var(--text-primary); }
+[data-theme="retro"]  .live-badge { background: rgba(76,201,240,0.10); border-color: rgba(76,201,240,0.30); color: #4cc9f0; }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    SECTION LABEL
@@ -648,11 +665,15 @@ body {
   color: var(--text-primary);
 }
 
+[data-theme="retro"] .section-title { text-shadow: 0 0 14px rgba(76,201,240,0.40); }
+
 .section-sub {
   margin-top: 2px;
   font-size: 0.6875rem;
   color: var(--text-muted);
 }
+
+[data-theme="retro"] .section-sub { color: rgba(76,201,240,0.35); }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    STICKY HEADER
@@ -669,7 +690,7 @@ body {
 }
 
 [data-theme="light"]  .sticky-header { background: rgba(240,239,233,0.85); }
-[data-theme="retro"]  .sticky-header { background: rgba(9,8,0,0.90); }
+[data-theme="retro"]  .sticky-header { background: rgba(6,0,16,0.90); border-bottom-color: rgba(247,37,133,0.18); }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    SCROLLBAR
@@ -690,4 +711,4 @@ body {
 }
 
 [data-theme="light"]  :focus-visible { outline-color: rgba(180,83,9,0.6); }
-[data-theme="retro"]  :focus-visible { outline-color: rgba(221,214,0,0.6); }
+[data-theme="retro"]  :focus-visible { outline-color: rgba(247,37,133,0.65); }
