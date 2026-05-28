@@ -75,8 +75,9 @@ export default function DashboardPage() {
   const [compFrequency, setCompFrequency] = useState("YEARLY");
   // Mutual fund
   const [selectedFund, setSelectedFund] = useState<MutualFundScheme | null>(null);
-  const [mfUnits, setMfUnits] = useState("");
+  const [mfAmount, setMfAmount] = useState("");
   const [mfNav, setMfNav] = useState("");
+  const [mfSip, setMfSip] = useState("");
 
   const [sellQuantities, setSellQuantities] = useState<Record<string, string>>({});
   const [redeemUnits, setRedeemUnits] = useState<Record<string, string>>({});
@@ -120,7 +121,7 @@ export default function DashboardPage() {
     setName(""); setQuantity(""); setAvgBuyPrice(""); setSelectedCrypto(null);
     setBoughtAtCurrentPrice(false); setPrincipal(""); setAnnualRate("");
     setStartDate(""); setMaturityDate(""); setCompFrequency("YEARLY");
-    setSelectedFund(null); setMfUnits(""); setMfNav("");
+    setSelectedFund(null); setMfAmount(""); setMfNav(""); setMfSip("");
   }
 
   async function addAsset() {
@@ -133,8 +134,8 @@ export default function DashboardPage() {
     if (FI.includes(assetType) && (!principal || !annualRate || !startDate)) {
       setError(`${assetType} requires principal, interest rate, and start date.`); return;
     }
-    if (assetType === "MUTUAL_FUND" && (!selectedFund || !mfUnits || !mfNav)) {
-      setError("Select a fund, enter units and purchase NAV."); return;
+    if (assetType === "MUTUAL_FUND" && (!selectedFund || !mfAmount || !mfNav)) {
+      setError("Select a fund, enter total amount invested and NAV."); return;
     }
 
     try {
@@ -159,8 +160,9 @@ export default function DashboardPage() {
         } : {}),
         ...(assetType === "MUTUAL_FUND" && selectedFund ? {
           scheme_code: selectedFund.scheme_code,
-          units: Number(mfUnits),
+          amount_invested: Number(mfAmount),
           nav_at_purchase: Number(mfNav),
+          monthly_sip: mfSip ? Number(mfSip) : undefined,
         } : {}),
       });
       resetForm();
@@ -357,7 +359,9 @@ export default function DashboardPage() {
                           )}
                           {asset.fi_holding && (
                             <p className="mt-0.5 text-[10px] text-slate-500">
-                              <span className="font-semibold text-sky-400">{inr(asset.fi_holding.principal)}</span>
+                              <span className="font-semibold text-sky-400">
+                                {asset.asset_type === "RD" ? `${inr(asset.fi_holding.principal)}/mo` : inr(asset.fi_holding.principal)}
+                              </span>
                               <span className="mx-1.5 text-slate-700">·</span>
                               <span>{asset.fi_holding.annual_rate}% p.a. {asset.fi_holding.compounding_frequency.toLowerCase()}</span>
                               <span className="mx-1.5 text-slate-700">·</span>
@@ -366,11 +370,15 @@ export default function DashboardPage() {
                           )}
                           {asset.mf_holding && (
                             <p className="mt-0.5 text-[10px] text-slate-500">
-                              <span className="font-semibold text-violet-400">{fmtQty(asset.mf_holding.units)} units</span>
+                              <span className="font-semibold text-violet-400">{inr(asset.mf_holding.amount_invested)}</span>
                               <span className="mx-1.5 text-slate-700">·</span>
-                              <span>NAV ₹{asset.mf_holding.nav_at_purchase.toFixed(2)} avg</span>
-                              <span className="mx-1.5 text-slate-700">·</span>
-                              <span className="text-slate-600">#{asset.mf_holding.scheme_code}</span>
+                              <span>{fmtQty(asset.mf_holding.units)} units @ ₹{asset.mf_holding.nav_at_purchase.toFixed(2)}</span>
+                              {asset.mf_holding.monthly_sip && (
+                                <>
+                                  <span className="mx-1.5 text-slate-700">·</span>
+                                  <span className="text-violet-400">SIP {inr(asset.mf_holding.monthly_sip)}/mo</span>
+                                </>
+                              )}
                             </p>
                           )}
                           {!asset.holding && !asset.fi_holding && !asset.mf_holding && (
@@ -498,13 +506,21 @@ export default function DashboardPage() {
                     <MutualFundSelector selected={selectedFund} onSelect={setSelectedFund} />
                   </Field>
                   <div className="grid grid-cols-2 gap-3">
-                    <Field label="Units Purchased">
-                      <input value={mfUnits} onChange={(e) => setMfUnits(e.target.value)} placeholder="250.5" inputMode="decimal" className="field-input"/>
+                    <Field label="Total Amount Invested (₹)">
+                      <input value={mfAmount} onChange={(e) => setMfAmount(e.target.value)} placeholder="50000" inputMode="decimal" className="field-input"/>
                     </Field>
                     <Field label="NAV at Purchase (₹)">
                       <input value={mfNav} onChange={(e) => setMfNav(e.target.value)} placeholder="45.23" inputMode="decimal" className="field-input"/>
                     </Field>
                   </div>
+                  {mfAmount && mfNav && Number(mfNav) > 0 && (
+                    <p className="text-[10px] text-slate-500">
+                      Units: <span className="font-semibold text-violet-400">{(Number(mfAmount) / Number(mfNav)).toFixed(4)}</span>
+                    </p>
+                  )}
+                  <Field label="Monthly SIP Amount (₹) — optional">
+                    <input value={mfSip} onChange={(e) => setMfSip(e.target.value)} placeholder="5000 — auto-added every month" inputMode="decimal" className="field-input"/>
+                  </Field>
                   {selectedFund && (
                     <div className="rounded-lg px-3 py-2" style={{ background: "rgba(167,139,250,0.07)", border: "1px solid rgba(167,139,250,0.18)" }}>
                       <p className="text-[10px] text-violet-300/80 truncate">{selectedFund.name}</p>
@@ -517,7 +533,11 @@ export default function DashboardPage() {
               {["FD","RD","PPF"].includes(assetType) && (
                 <>
                   <div className="grid grid-cols-2 gap-3">
-                    <Field label="Principal (₹)"><input value={principal} onChange={(e) => setPrincipal(e.target.value)} placeholder="100000" inputMode="decimal" className="field-input"/></Field>
+                    <Field label={assetType === "RD" ? "Monthly Deposit (₹)" : "Principal (₹)"}>
+                      <input value={principal} onChange={(e) => setPrincipal(e.target.value)}
+                        placeholder={assetType === "RD" ? "5000" : "100000"}
+                        inputMode="decimal" className="field-input"/>
+                    </Field>
                     <Field label="Annual Rate (%)"><input value={annualRate} onChange={(e) => setAnnualRate(e.target.value)} placeholder="7.5" inputMode="decimal" className="field-input"/></Field>
                   </div>
                   <div className="grid grid-cols-2 gap-3">

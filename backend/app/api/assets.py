@@ -5,7 +5,8 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from typing import Optional
 from app.db.session import AsyncSessionLocal
-from app.db.models import Asset, CryptoHolding, FixedIncomeHolding, MutualFundHolding, Transaction
+from app.db.models import Asset, CryptoHolding, FixedIncomeHolding, MutualFundHolding, Transaction, ValuationHistory
+from app.services.fixed_income import compound_value
 
 router = APIRouter()
 
@@ -30,8 +31,9 @@ class AssetCreate(BaseModel):
     compounding_frequency: Optional[str] = None
     # Mutual fund
     scheme_code: Optional[str] = None
-    units: Optional[Decimal] = None
+    amount_invested: Optional[Decimal] = None   # total corpus user enters
     nav_at_purchase: Optional[Decimal] = None
+    monthly_sip: Optional[Decimal] = None
 
 
 async def get_session():
@@ -48,6 +50,30 @@ def _asset_row(asset: Asset) -> dict:
         "liquidity_tier": asset.liquidity_tier,
         "created_at": str(asset.created_at),
     }
+
+
+def _rd_months_elapsed(start_date: date, as_of: date) -> int:
+    months = (as_of.year - start_date.year) * 12 + (as_of.month - start_date.month) + 1
+    return max(1, months)
+
+
+def _initial_fi_valuation(asset_id, asset_type: str, principal: Decimal, annual_rate: Decimal,
+                           start_date: date, frequency: str) -> ValuationHistory:
+    today = date.today()
+    if asset_type == "RD":
+        months = _rd_months_elapsed(start_date, today)
+        invested = principal * Decimal(months)
+    else:
+        invested = principal
+    current = compound_value(invested, annual_rate, start_date, today, frequency)
+    return ValuationHistory(
+        asset_id=asset_id,
+        valuation_date=today,
+        invested_amount=invested,
+        current_value=current,
+        pnl=current - invested,
+        source="initial",
+    )
 
 
 @router.get("/assets")
@@ -103,6 +129,8 @@ async def list_assets(session=Depends(get_session)):
                 "scheme_code": mf.scheme_code,
                 "units": float(mf.units),
                 "nav_at_purchase": float(mf.nav_at_purchase),
+                "monthly_sip": float(mf.monthly_sip) if mf.monthly_sip else None,
+                "amount_invested": float(mf.units * mf.nav_at_purchase),
             }
 
         rows.append(row)
@@ -180,14 +208,19 @@ async def create_asset(payload: AssetCreate, session=Depends(get_session)):
 
     # ── MUTUAL FUND ──────────────────────────────────────────────────────────
     if payload.asset_type == "MUTUAL_FUND":
-        if not payload.scheme_code or payload.units is None or payload.nav_at_purchase is None:
+        if not payload.scheme_code or payload.amount_invested is None or payload.nav_at_purchase is None:
             raise HTTPException(
                 status_code=400,
-                detail="Mutual fund requires scheme_code, units, and nav_at_purchase",
+                detail="Mutual fund requires scheme_code, amount_invested, and nav_at_purchase",
             )
 
-        add_units = payload.units
         add_nav = payload.nav_at_purchase
+        if add_nav <= 0:
+            raise HTTPException(status_code=400, detail="NAV must be greater than zero")
+
+        # Derive units from total amount
+        add_units = payload.amount_invested / add_nav
+        add_amount = payload.amount_invested
 
         existing_result = await session.execute(
             select(MutualFundHolding).where(MutualFundHolding.scheme_code == payload.scheme_code)
@@ -201,14 +234,25 @@ async def create_asset(payload: AssetCreate, session=Depends(get_session)):
             if total_units > 0:
                 existing.nav_at_purchase = (old_units * old_nav + add_units * add_nav) / total_units
             existing.units = total_units
+            if payload.monthly_sip:
+                existing.monthly_sip = payload.monthly_sip
 
             session.add(Transaction(
                 asset_id=existing.asset_id,
                 transaction_type="BUY",
                 transaction_date=date.today(),
-                amount=add_units * add_nav,
+                amount=add_amount,
                 units=add_units,
                 price_per_unit=add_nav,
+            ))
+            # Update initial valuation
+            session.add(ValuationHistory(
+                asset_id=existing.asset_id,
+                valuation_date=date.today(),
+                invested_amount=total_units * existing.nav_at_purchase,
+                current_value=total_units * existing.nav_at_purchase,
+                pnl=Decimal("0"),
+                source="initial",
             ))
             await session.commit()
 
@@ -231,14 +275,24 @@ async def create_asset(payload: AssetCreate, session=Depends(get_session)):
                 scheme_code=payload.scheme_code,
                 units=add_units,
                 nav_at_purchase=add_nav,
+                monthly_sip=payload.monthly_sip,
             ))
             session.add(Transaction(
                 asset_id=asset.id,
                 transaction_type="BUY",
                 transaction_date=date.today(),
-                amount=add_units * add_nav,
+                amount=add_amount,
                 units=add_units,
                 price_per_unit=add_nav,
+            ))
+            # Initial valuation so dashboard total shows immediately
+            session.add(ValuationHistory(
+                asset_id=asset.id,
+                valuation_date=date.today(),
+                invested_amount=add_amount,
+                current_value=add_amount,
+                pnl=Decimal("0"),
+                source="initial",
             ))
             await session.commit()
             await session.refresh(asset)
@@ -252,6 +306,8 @@ async def create_asset(payload: AssetCreate, session=Depends(get_session)):
                 status_code=400,
                 detail=f"{payload.asset_type} requires principal, annual_rate, and start_date",
             )
+
+        freq = payload.compounding_frequency or "YEARLY"
 
         asset = Asset(
             name=payload.name,
@@ -268,7 +324,7 @@ async def create_asset(payload: AssetCreate, session=Depends(get_session)):
             annual_rate=payload.annual_rate,
             start_date=payload.start_date,
             maturity_date=payload.maturity_date,
-            compounding_frequency=payload.compounding_frequency or "YEARLY",
+            compounding_frequency=freq,
         ))
         session.add(Transaction(
             asset_id=asset.id,
@@ -277,6 +333,11 @@ async def create_asset(payload: AssetCreate, session=Depends(get_session)):
             amount=payload.principal,
             units=None,
             price_per_unit=None,
+        ))
+        # Initial valuation — shows in dashboard immediately
+        session.add(_initial_fi_valuation(
+            asset.id, payload.asset_type, payload.principal,
+            payload.annual_rate, payload.start_date, freq,
         ))
         await session.commit()
         await session.refresh(asset)
