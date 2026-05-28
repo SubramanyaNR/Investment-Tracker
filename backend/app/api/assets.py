@@ -2,7 +2,7 @@ from decimal import Decimal
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import select, delete, and_
 from typing import Optional
 from app.db.session import AsyncSessionLocal
 from app.db.models import Asset, CryptoHolding, FixedIncomeHolding, MutualFundHolding, Transaction, ValuationHistory
@@ -57,23 +57,31 @@ def _rd_months_elapsed(start_date: date, as_of: date) -> int:
     return max(1, months)
 
 
-def _initial_fi_valuation(asset_id, asset_type: str, principal: Decimal, annual_rate: Decimal,
-                           start_date: date, frequency: str) -> ValuationHistory:
-    today = date.today()
-    if asset_type == "RD":
-        months = _rd_months_elapsed(start_date, today)
-        invested = principal * Decimal(months)
-    else:
-        invested = principal
-    current = compound_value(invested, annual_rate, start_date, today, frequency)
-    return ValuationHistory(
+async def _write_initial_valuation(
+    session,
+    asset_id,
+    invested: Decimal,
+    current: Decimal,
+    pnl: Decimal,
+    source: str = "initial",
+) -> None:
+    """Delete-then-insert for today so duplicates can never accumulate."""
+    await session.execute(
+        delete(ValuationHistory).where(
+            and_(
+                ValuationHistory.asset_id == asset_id,
+                ValuationHistory.valuation_date == date.today(),
+            )
+        )
+    )
+    session.add(ValuationHistory(
         asset_id=asset_id,
-        valuation_date=today,
+        valuation_date=date.today(),
         invested_amount=invested,
         current_value=current,
-        pnl=current - invested,
-        source="initial",
-    )
+        pnl=pnl,
+        source=source,
+    ))
 
 
 @router.get("/assets")
@@ -161,6 +169,7 @@ async def create_asset(payload: AssetCreate, session=Depends(get_session)):
             if total_qty > 0:
                 existing.avg_buy_price = (old_qty * old_avg + add_qty * add_price) / total_qty
             existing.quantity = total_qty
+            new_avg = Decimal(str(existing.avg_buy_price))
 
             session.add(Transaction(
                 asset_id=existing.asset_id,
@@ -170,6 +179,8 @@ async def create_asset(payload: AssetCreate, session=Depends(get_session)):
                 units=add_qty,
                 price_per_unit=add_price,
             ))
+            invested = Decimal(str(total_qty)) * new_avg
+            await _write_initial_valuation(session, existing.asset_id, invested, invested, Decimal("0"))
             await session.commit()
 
             asset_result = await session.execute(
@@ -201,6 +212,8 @@ async def create_asset(payload: AssetCreate, session=Depends(get_session)):
                 units=add_qty,
                 price_per_unit=add_price,
             ))
+            invested = add_qty * add_price
+            await _write_initial_valuation(session, asset.id, invested, invested, Decimal("0"))
             await session.commit()
             await session.refresh(asset)
 
@@ -218,7 +231,6 @@ async def create_asset(payload: AssetCreate, session=Depends(get_session)):
         if add_nav <= 0:
             raise HTTPException(status_code=400, detail="NAV must be greater than zero")
 
-        # Derive units from total amount
         add_units = payload.amount_invested / add_nav
         add_amount = payload.amount_invested
 
@@ -245,15 +257,8 @@ async def create_asset(payload: AssetCreate, session=Depends(get_session)):
                 units=add_units,
                 price_per_unit=add_nav,
             ))
-            # Update initial valuation
-            session.add(ValuationHistory(
-                asset_id=existing.asset_id,
-                valuation_date=date.today(),
-                invested_amount=total_units * existing.nav_at_purchase,
-                current_value=total_units * existing.nav_at_purchase,
-                pnl=Decimal("0"),
-                source="initial",
-            ))
+            total_invested = Decimal(str(total_units)) * Decimal(str(existing.nav_at_purchase))
+            await _write_initial_valuation(session, existing.asset_id, total_invested, total_invested, Decimal("0"))
             await session.commit()
 
             asset_result = await session.execute(
@@ -285,15 +290,7 @@ async def create_asset(payload: AssetCreate, session=Depends(get_session)):
                 units=add_units,
                 price_per_unit=add_nav,
             ))
-            # Initial valuation so dashboard total shows immediately
-            session.add(ValuationHistory(
-                asset_id=asset.id,
-                valuation_date=date.today(),
-                invested_amount=add_amount,
-                current_value=add_amount,
-                pnl=Decimal("0"),
-                source="initial",
-            ))
+            await _write_initial_valuation(session, asset.id, add_amount, add_amount, Decimal("0"))
             await session.commit()
             await session.refresh(asset)
 
@@ -308,6 +305,15 @@ async def create_asset(payload: AssetCreate, session=Depends(get_session)):
             )
 
         freq = payload.compounding_frequency or "YEARLY"
+        today = date.today()
+
+        if payload.asset_type == "RD":
+            months = _rd_months_elapsed(payload.start_date, today)
+            fi_invested = payload.principal * Decimal(months)
+        else:
+            fi_invested = payload.principal
+
+        fi_current = compound_value(fi_invested, payload.annual_rate, payload.start_date, today, freq)
 
         asset = Asset(
             name=payload.name,
@@ -334,11 +340,7 @@ async def create_asset(payload: AssetCreate, session=Depends(get_session)):
             units=None,
             price_per_unit=None,
         ))
-        # Initial valuation — shows in dashboard immediately
-        session.add(_initial_fi_valuation(
-            asset.id, payload.asset_type, payload.principal,
-            payload.annual_rate, payload.start_date, freq,
-        ))
+        await _write_initial_valuation(session, asset.id, fi_invested, fi_current, fi_current - fi_invested)
         await session.commit()
         await session.refresh(asset)
         return _asset_row(asset)
