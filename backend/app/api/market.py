@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query
 from app.integrations.coingecko import get_top_cryptos
-from app.integrations.mfapi import search_schemes
+from app.integrations.mfapi import search_schemes, get_latest_nav
 
 router = APIRouter(prefix="/market", tags=["market"])
 
@@ -17,5 +17,13 @@ async def top_cryptos():
 async def search_mutual_funds(q: str = Query(..., min_length=3)):
     try:
         return await search_schemes(q)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"MFAPI error: {str(e)}")
+
+
+@router.get("/mutual-funds/{scheme_code}/nav")
+async def get_mf_nav(scheme_code: str):
+    try:
+        return await get_latest_nav(scheme_code)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"MFAPI error: {str(e)}")
