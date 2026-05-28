@@ -102,3 +102,4 @@ class MutualFundHolding(Base):
     scheme_code: Mapped[str] = mapped_column(String, nullable=False)
     units = mapped_column(Numeric(24, 10), nullable=False)
     nav_at_purchase = mapped_column(Numeric(18, 6), nullable=False)
+    monthly_sip = mapped_column(Numeric(18, 2), nullable=True)

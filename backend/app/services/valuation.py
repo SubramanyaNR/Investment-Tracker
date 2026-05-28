@@ -74,6 +74,11 @@ async def recalculate_crypto_valuations(session: AsyncSession) -> list[dict]:
     return output
 
 
+def _rd_months_elapsed(start_date: date, as_of: date) -> int:
+    months = (as_of.year - start_date.year) * 12 + (as_of.month - start_date.month) + 1
+    return max(1, months)
+
+
 async def recalculate_fixed_income_valuations(session: AsyncSession) -> list[dict]:
     result = await session.execute(
         select(Asset, FixedIncomeHolding)
@@ -86,16 +91,27 @@ async def recalculate_fixed_income_valuations(session: AsyncSession) -> list[dic
     today = date.today()
     output = []
     for asset, holding in rows:
-        principal = Decimal(str(holding.principal))
         rate = Decimal(str(holding.annual_rate))
-        current = compound_value(principal, rate, holding.start_date, today, holding.compounding_frequency)
-        pnl = current - principal
+        freq = holding.compounding_frequency
 
-        await _upsert_valuation(session, asset.id, principal, current, pnl, "compound_interest")
+        if asset.asset_type == "RD":
+            # principal = monthly installment; invested grows each month
+            monthly = Decimal(str(holding.principal))
+            months = _rd_months_elapsed(holding.start_date, today)
+            invested = monthly * Decimal(months)
+        else:
+            # FD, PPF: one-time lump sum
+            invested = Decimal(str(holding.principal))
+
+        current = compound_value(invested, rate, holding.start_date, today, freq)
+        pnl = current - invested
+
+        await _upsert_valuation(session, asset.id, invested, current, pnl, "compound_interest")
 
         output.append({
             "asset": asset.name,
-            "principal": float(principal),
+            "type": asset.asset_type,
+            "invested_amount": float(invested),
             "current_value": float(current),
             "pnl": float(pnl),
         })

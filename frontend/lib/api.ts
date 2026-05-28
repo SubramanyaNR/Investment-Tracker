@@ -22,6 +22,8 @@ export type MutualFundHoldingDetail = {
   scheme_code: string;
   units: number;
   nav_at_purchase: number;
+  amount_invested: number;
+  monthly_sip: number | null;
 };
 
 export type Asset = {
@@ -130,8 +132,9 @@ export async function createAsset(payload: {
   compounding_frequency?: string;
   // mutual fund
   scheme_code?: string;
-  units?: number;
+  amount_invested?: number;
   nav_at_purchase?: number;
+  monthly_sip?: number;
 }) {
   return post<Asset>("/assets", payload);
 }
