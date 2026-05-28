@@ -20,19 +20,19 @@ export default function CryptoSelector({ selected, onSelect }: Props) {
     setLoading(true);
     getTopCryptos()
       .then(setCoins)
-      .catch(() => setError("Failed to load cryptos"))
+      .catch(() => setError("Failed to load"))
       .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
+    function onOutside(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) {
         setOpen(false);
         setSearch("");
       }
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("mousedown", onOutside);
+    return () => document.removeEventListener("mousedown", onOutside);
   }, []);
 
   const filtered = coins.filter(
@@ -49,25 +49,33 @@ export default function CryptoSelector({ selected, onSelect }: Props) {
 
   return (
     <div ref={ref} className="relative">
+      {/* Trigger button styled like field-input */}
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between rounded-lg border border-zinc-800 bg-black px-3 py-2 text-sm text-zinc-100 outline-none hover:border-cyan-400/60 focus:border-cyan-400"
+        className="flex w-full items-center justify-between rounded-lg px-3 py-[0.5625rem] text-[0.8125rem] leading-6 outline-none transition-colors"
+        style={{
+          background: "rgba(255,255,255,0.035)",
+          border: open
+            ? "1px solid rgba(34,211,238,0.4)"
+            : "1px solid rgba(255,255,255,0.08)",
+          color: selected ? "#cbd5e1" : "rgba(255,255,255,0.18)",
+        }}
       >
         {selected ? (
-          <span className="flex items-center gap-2">
+          <span className="flex items-center gap-2 truncate">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={selected.image} alt={selected.name} className="h-4 w-4 rounded-full" />
-            <span>{selected.name}</span>
-            <span className="text-zinc-500">({selected.symbol})</span>
+            <img src={selected.image} alt={selected.name} className="h-4 w-4 shrink-0 rounded-full" />
+            <span className="truncate">{selected.name}</span>
+            <span className="shrink-0 text-slate-600">({selected.symbol})</span>
           </span>
         ) : loading ? (
-          <span className="text-zinc-500">Loading cryptos…</span>
+          <span>Loading coins…</span>
         ) : (
-          <span className="text-zinc-500">Select crypto…</span>
+          <span>Select a coin…</span>
         )}
         <svg
-          className={`ml-2 h-3 w-3 shrink-0 text-zinc-500 transition-transform ${open ? "rotate-180" : ""}`}
+          className={`ml-2 h-3 w-3 shrink-0 text-slate-600 transition-transform ${open ? "rotate-180" : ""}`}
           viewBox="0 0 10 6"
           fill="none"
           stroke="currentColor"
@@ -77,36 +85,52 @@ export default function CryptoSelector({ selected, onSelect }: Props) {
         </svg>
       </button>
 
+      {/* Dropdown */}
       {open && (
-        <div className="absolute z-50 mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-950 shadow-lg">
-          <div className="border-b border-zinc-800 p-2">
+        <div
+          className="absolute z-50 mt-1 w-full overflow-hidden rounded-xl"
+          style={{
+            background: "#0e0e18",
+            border: "1px solid rgba(255,255,255,0.09)",
+            boxShadow: "0 16px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(34,211,238,0.06)",
+          }}
+        >
+          {/* Search */}
+          <div style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }} className="p-2">
             <input
               autoFocus
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search…"
-              className="w-full rounded bg-black px-2 py-1.5 text-sm text-zinc-100 outline-none placeholder:text-zinc-600"
+              placeholder="Search coins…"
+              className="w-full rounded-lg bg-white/[0.04] px-2.5 py-1.5 text-xs text-slate-300 outline-none placeholder:text-slate-700 focus:bg-white/[0.06]"
             />
           </div>
 
+          {/* List */}
           {error ? (
-            <p className="px-3 py-3 text-xs text-red-400">{error}</p>
+            <p className="px-3 py-3 text-[11px] text-red-400">{error}</p>
           ) : filtered.length === 0 ? (
-            <p className="px-3 py-3 text-xs text-zinc-500">No results</p>
+            <p className="px-3 py-3 text-[11px] text-slate-600">No results</p>
           ) : (
-            <ul className="max-h-56 overflow-y-auto py-1">
+            <ul className="max-h-52 overflow-y-auto py-1">
               {filtered.map((coin) => (
                 <li key={coin.id}>
                   <button
                     type="button"
                     onClick={() => handleSelect(coin)}
-                    className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-zinc-900"
+                    className="flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-white/[0.04]"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={coin.image} alt={coin.name} className="h-5 w-5 shrink-0 rounded-full" />
-                    <span className="flex-1 font-medium text-zinc-100">{coin.name}</span>
-                    <span className="text-xs text-zinc-500">{coin.symbol}</span>
-                    <span className="text-xs text-cyan-300">
+                    <img
+                      src={coin.image}
+                      alt={coin.name}
+                      className="h-5 w-5 shrink-0 rounded-full"
+                    />
+                    <span className="flex-1 text-xs font-medium text-slate-200">
+                      {coin.name}
+                    </span>
+                    <span className="text-[10px] text-slate-600">{coin.symbol}</span>
+                    <span className="text-[10px] font-semibold text-cyan-400">
                       ₹{coin.current_price.toLocaleString("en-IN")}
                     </span>
                   </button>
