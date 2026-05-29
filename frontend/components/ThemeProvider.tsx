@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
-export type Theme = "dark" | "light" | "retro";
+export type Theme = "dark" | "light";
 
 const Ctx = createContext<{ theme: Theme; setTheme: (t: Theme) => void }>({
   theme: "dark",
