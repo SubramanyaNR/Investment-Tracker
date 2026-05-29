@@ -14,3 +14,6 @@ build/
 # Alembic compiled
 alembic/__pycache__/
 alembic/versions/__pycache__/
+
+# Backups
+backups/
