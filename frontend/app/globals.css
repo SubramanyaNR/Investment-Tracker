@@ -88,53 +88,6 @@
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   DESIGN TOKENS — Retro  ·  SYNTHWAVE "Neon Night"
-   Inspired by: Blade Runner, Tron, Outrun, vaporwave
-   Palette: deep space purple · electric cyan · neon pink
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-
-[data-theme="retro"] {
-  --bg-base:     #060010;
-  --bg-surface:  #0c001f;
-  --bg-elevated: #130030;
-  --bg-overlay:  #1b0045;
-
-  --border-subtle:  rgba(247,37,133,0.08);
-  --border-default: rgba(247,37,133,0.18);
-  --border-strong:  rgba(247,37,133,0.38);
-
-  /* Primary text: electric cyan — readable on deep purple */
-  --text-primary:   #4cc9f0;
-  --text-secondary: #7b2fbe;
-  --text-muted:     #2d0054;
-  --text-dim:       rgba(76,201,240,0.18);
-
-  --shadow-card:     0 0 0 1px rgba(247,37,133,0.14), 0 0 30px rgba(247,37,133,0.06), inset 0 0 60px rgba(76,201,240,0.015);
-  --shadow-elevated: 0 0 0 1px rgba(247,37,133,0.24), 0 8px 40px rgba(0,0,0,0.85), 0 0 20px rgba(247,37,133,0.08);
-
-  --radius:    2px;
-  --radius-sm: 2px;
-  --radius-xs: 1px;
-
-  --input-bg:           rgba(76,201,240,0.04);
-  --input-border:       rgba(247,37,133,0.22);
-  --input-focus-border: rgba(76,201,240,0.65);
-  --input-focus-bg:     rgba(76,201,240,0.06);
-  --input-color:        #4cc9f0;
-  --input-placeholder:  rgba(76,201,240,0.22);
-  --input-option-bg:    #130030;
-
-  --scrollbar:       rgba(247,37,133,0.22);
-  --scrollbar-hover: rgba(247,37,133,0.40);
-
-  /* Pink glow top-left, cyan glow bottom-right */
-  --ambient-amber:  radial-gradient(ellipse 80% 45% at 12% 0%,  rgba(247,37,133,0.09) 0%, transparent 65%);
-  --ambient-violet: radial-gradient(ellipse 70% 55% at 88% 100%, rgba(76,201,240,0.07) 0%, transparent 65%);
-  --dot-grid: radial-gradient(rgba(76,201,240,0.07) 1px, transparent 1px);
-  --header-line: linear-gradient(90deg, transparent 0%, rgba(247,37,133,0.70) 50%, transparent 100%);
-}
-
-/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    FONTS
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
@@ -158,48 +111,6 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition: background 0.2s ease, color 0.2s ease;
-}
-
-[data-theme="retro"] body {
-  font-family: var(--font-mono);
-  letter-spacing: 0.01em;
-}
-
-/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   RETRO EFFECTS
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-
-/* CRT scanlines overlay — subtle cyan-tinted lines */
-[data-theme="retro"] body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: 9998;
-  pointer-events: none;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(76,201,240,0.025) 2px,
-    rgba(76,201,240,0.025) 4px
-  );
-}
-
-/* CRT vignette — darkened edges for that cathode-ray feel */
-[data-theme="retro"] body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: 9997;
-  pointer-events: none;
-  background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,10,0.50) 100%);
-}
-
-/* Flatten all border radii in retro */
-[data-theme="retro"] *,
-[data-theme="retro"] *::before,
-[data-theme="retro"] *::after {
-  border-radius: 2px !important;
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -243,10 +154,6 @@ body {
 [data-theme="light"] .card-violet { background: linear-gradient(160deg, rgba(124,58,237,0.04) 0%, #fff 40%); border-color: rgba(109,40,217,0.14); }
 [data-theme="light"] .card-emerald{ background: linear-gradient(160deg, rgba(5,150,105,0.04) 0%, #fff 40%); border-color: rgba(5,150,105,0.14); }
 
-[data-theme="retro"] .card-amber,
-[data-theme="retro"] .card-violet,
-[data-theme="retro"] .card-emerald { background: var(--bg-surface); border-color: var(--border-default); }
-
 .card-header {
   display: flex;
   align-items: center;
@@ -256,8 +163,7 @@ body {
   background: rgba(255,255,255,0.015);
 }
 
-[data-theme="light"]  .card-header { background: rgba(0,0,0,0.018); }
-[data-theme="retro"]  .card-header { background: rgba(247,37,133,0.025); }
+[data-theme="light"] .card-header { background: rgba(0,0,0,0.018); }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    FIELD INPUT
@@ -322,15 +228,6 @@ body {
 [data-theme="light"] .type-badge--sky     { border-color: rgba(3,105,161,0.20);   background: rgba(56,189,248,0.10);  color: #0369a1; }
 [data-theme="light"] .type-badge--emerald { border-color: rgba(6,95,70,0.20);     background: rgba(52,211,153,0.10);  color: #065f46; }
 
-[data-theme="retro"] .type-badge--amber,
-[data-theme="retro"] .type-badge--violet,
-[data-theme="retro"] .type-badge--sky,
-[data-theme="retro"] .type-badge--emerald {
-  border-color: rgba(76,201,240,0.30);
-  background: rgba(76,201,240,0.08);
-  color: #4cc9f0;
-}
-
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    TRANSACTION BADGES
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
@@ -354,10 +251,6 @@ body {
 [data-theme="light"] .tx-badge--sell    { color: #991b1b; background: rgba(248,113,113,0.10); border-color: rgba(220,38,38,0.22); }
 [data-theme="light"] .tx-badge--deposit { color: #3730a3; background: rgba(129,140,248,0.10); border-color: rgba(99,102,241,0.22); }
 
-[data-theme="retro"] .tx-badge--buy     { border-color: rgba(76,201,240,0.30); background: rgba(76,201,240,0.08); color: #4cc9f0; }
-[data-theme="retro"] .tx-badge--sell    { border-color: rgba(247,37,133,0.30); background: rgba(247,37,133,0.08); color: #f72585; }
-[data-theme="retro"] .tx-badge--deposit { border-color: rgba(76,201,240,0.22); background: rgba(76,201,240,0.06); color: #a78bfa; }
-
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    KPI CARDS
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
@@ -366,7 +259,6 @@ body {
 .kpi-sub   { color: var(--text-muted); }
 
 [data-theme="light"] .kpi-value { color: #0d0e1f; }
-[data-theme="retro"] .kpi-value { color: #f72585; text-shadow: 0 0 20px rgba(247,37,133,0.55), 0 0 8px rgba(247,37,133,0.30); }
 
 .kpi-label--amber   { color: #fbbf24; }
 .kpi-label--violet  { color: #c4b5fd; }
@@ -378,25 +270,11 @@ body {
 [data-theme="light"] .kpi-label--emerald { color: #065f46; }
 [data-theme="light"] .kpi-label--red     { color: #991b1b; }
 
-[data-theme="retro"] .kpi-label--amber,
-[data-theme="retro"] .kpi-label--violet,
-[data-theme="retro"] .kpi-label--emerald,
-[data-theme="retro"] .kpi-label--red { color: #4cc9f0; }
-
 /* Light mode overrides for KPI card backgrounds */
 [data-theme="light"] .kpi-amber  { background: linear-gradient(135deg, rgba(245,158,11,0.09) 0%, #fff 55%) !important; border-color: rgba(180,83,9,0.20) !important; box-shadow: 0 1px 12px rgba(180,83,9,0.06), 0 0 0 1px rgba(180,83,9,0.08) !important; }
 [data-theme="light"] .kpi-violet { background: linear-gradient(135deg, rgba(167,139,250,0.10) 0%, #fff 55%) !important; border-color: rgba(109,40,217,0.18) !important; box-shadow: 0 1px 12px rgba(109,40,217,0.06), 0 0 0 1px rgba(109,40,217,0.08) !important; }
 [data-theme="light"] .kpi-emerald{ background: linear-gradient(135deg, rgba(52,211,153,0.10) 0%, #fff 55%) !important; border-color: rgba(5,150,105,0.18) !important; box-shadow: 0 1px 12px rgba(5,150,105,0.06), 0 0 0 1px rgba(5,150,105,0.08) !important; }
 [data-theme="light"] .kpi-red    { background: linear-gradient(135deg, rgba(248,113,113,0.10) 0%, #fff 55%) !important; border-color: rgba(220,38,38,0.18) !important; box-shadow: 0 1px 12px rgba(220,38,38,0.06), 0 0 0 1px rgba(220,38,38,0.08) !important; }
-
-/* Retro KPI cards — flat with amber border glow */
-[data-theme="retro"] .kpi-amber,
-[data-theme="retro"] .kpi-violet,
-[data-theme="retro"] .kpi-emerald,
-[data-theme="retro"] .kpi-red { background: var(--bg-surface) !important; border-color: var(--border-strong) !important; box-shadow: var(--shadow-card) !important; }
-
-/* Top accent bar on KPI cards */
-[data-theme="retro"] .kpi-bar { background: var(--border-strong) !important; }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    TABS
@@ -435,9 +313,7 @@ body {
   font-weight: 600;
 }
 
-[data-theme="light"] .tab-btn.active  { color: #b45309; border-bottom-color: #b45309; }
-[data-theme="retro"] .tab-btn         { letter-spacing: 0.06em; text-transform: uppercase; font-size: 0.65rem; }
-[data-theme="retro"] .tab-btn.active  { color: #f72585; border-bottom-color: #f72585; text-shadow: 0 0 10px rgba(247,37,133,0.45); }
+[data-theme="light"] .tab-btn.active { color: #b45309; border-bottom-color: #b45309; }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    THEME SWITCHER
@@ -473,7 +349,6 @@ body {
 .theme-btn:hover { color: var(--text-secondary); background: var(--bg-overlay); }
 .theme-btn.active { background: var(--bg-overlay); color: var(--text-primary); box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
 [data-theme="light"] .theme-btn.active { box-shadow: 0 1px 4px rgba(0,0,0,0.10); }
-[data-theme="retro"] .theme-btn.active { background: rgba(247,37,133,0.14); color: #f72585; box-shadow: 0 0 12px rgba(247,37,133,0.30); }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    HOLDINGS TABLE ROWS
@@ -481,8 +356,7 @@ body {
 
 .holdings-row { transition: background 0.12s; }
 .holdings-row:hover { background: rgba(255,255,255,0.028) !important; }
-[data-theme="light"]  .holdings-row:hover { background: rgba(0,0,0,0.025) !important; }
-[data-theme="retro"]  .holdings-row:hover { background: rgba(247,37,133,0.05) !important; }
+[data-theme="light"] .holdings-row:hover { background: rgba(0,0,0,0.025) !important; }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    DROPDOWN POPUP (CryptoSelector / MFSelector)
@@ -506,8 +380,7 @@ body {
 }
 
 .dropdown-item:hover { background: rgba(255,255,255,0.04); }
-[data-theme="light"]  .dropdown-item:hover { background: rgba(0,0,0,0.04); }
-[data-theme="retro"]  .dropdown-item:hover { background: rgba(247,37,133,0.06); }
+[data-theme="light"] .dropdown-item:hover { background: rgba(0,0,0,0.04); }
 
 .dropdown-inner-search {
   width: 100%;
@@ -520,12 +393,10 @@ body {
   border: none;
   font-family: inherit;
 }
-[data-theme="light"]  .dropdown-inner-search { background: rgba(0,0,0,0.04); }
-[data-theme="retro"]  .dropdown-inner-search { background: rgba(76,201,240,0.05); }
+[data-theme="light"] .dropdown-inner-search { background: rgba(0,0,0,0.04); }
 .dropdown-inner-search::placeholder { color: var(--text-muted); }
 .dropdown-inner-search:focus { background: rgba(255,255,255,0.06); }
-[data-theme="light"]  .dropdown-inner-search:focus { background: rgba(0,0,0,0.06); }
-[data-theme="retro"]  .dropdown-inner-search:focus { background: rgba(76,201,240,0.08); }
+[data-theme="light"] .dropdown-inner-search:focus { background: rgba(0,0,0,0.06); }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    TRIGGER BUTTON (selector trigger)
@@ -574,20 +445,8 @@ body {
   box-shadow: 0 0 28px rgba(245,158,11,0.28), 0 2px 8px rgba(0,0,0,0.4);
 }
 
-.btn-primary:hover:not(:disabled)   { filter: brightness(1.08); }
+.btn-primary:hover:not(:disabled) { filter: brightness(1.08); }
 .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
-
-[data-theme="retro"] .btn-primary {
-  background: rgba(247,37,133,0.12);
-  color: #f72585;
-  border: 1px solid rgba(247,37,133,0.45);
-  box-shadow: 0 0 20px rgba(247,37,133,0.18), inset 0 0 20px rgba(247,37,133,0.04);
-}
-[data-theme="retro"] .btn-primary:hover:not(:disabled) {
-  background: rgba(247,37,133,0.20);
-  box-shadow: 0 0 32px rgba(247,37,133,0.30), inset 0 0 20px rgba(247,37,133,0.06);
-  filter: none;
-}
 
 .btn-refresh {
   display: flex;
@@ -607,9 +466,7 @@ body {
 .btn-refresh:hover:not(:disabled) { background: rgba(245,158,11,0.10); }
 .btn-refresh:disabled { opacity: 0.45; cursor: not-allowed; }
 
-[data-theme="light"] .btn-refresh  { border-color: rgba(180,83,9,0.28); color: #b45309; background: rgba(245,158,11,0.07); }
-[data-theme="retro"] .btn-refresh  { border-color: rgba(76,201,240,0.28); color: #4cc9f0; background: rgba(76,201,240,0.06); }
-[data-theme="retro"] .btn-refresh:hover:not(:disabled) { background: rgba(76,201,240,0.12); }
+[data-theme="light"] .btn-refresh { border-color: rgba(180,83,9,0.28); color: #b45309; background: rgba(245,158,11,0.07); }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    ERROR BANNER
@@ -627,11 +484,9 @@ body {
 }
 
 [data-theme="light"] .error-banner { background: rgba(254,202,202,0.50); border-color: rgba(220,38,38,0.22); }
-[data-theme="retro"] .error-banner { background: rgba(247,37,133,0.10); border-color: rgba(247,37,133,0.28); }
 
-.error-text   { color: #fca5a5; }
-[data-theme="light"]  .error-text { color: #991b1b; }
-[data-theme="retro"]  .error-text { color: #f72585; }
+.error-text { color: #fca5a5; }
+[data-theme="light"] .error-text { color: #991b1b; }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    LIVE BADGE in header
@@ -652,8 +507,7 @@ body {
   color: #34d399;
 }
 
-[data-theme="light"]  .live-badge { background: rgba(5,150,105,0.09); border-color: rgba(5,150,105,0.22); color: #065f46; }
-[data-theme="retro"]  .live-badge { background: rgba(76,201,240,0.10); border-color: rgba(76,201,240,0.30); color: #4cc9f0; }
+[data-theme="light"] .live-badge { background: rgba(5,150,105,0.09); border-color: rgba(5,150,105,0.22); color: #065f46; }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    SECTION LABEL
@@ -665,15 +519,11 @@ body {
   color: var(--text-primary);
 }
 
-[data-theme="retro"] .section-title { text-shadow: 0 0 14px rgba(76,201,240,0.40); }
-
 .section-sub {
   margin-top: 2px;
   font-size: 0.6875rem;
   color: var(--text-muted);
 }
-
-[data-theme="retro"] .section-sub { color: rgba(76,201,240,0.35); }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    STICKY HEADER
@@ -689,8 +539,7 @@ body {
   border-bottom: 1px solid var(--border-subtle);
 }
 
-[data-theme="light"]  .sticky-header { background: rgba(240,239,233,0.85); }
-[data-theme="retro"]  .sticky-header { background: rgba(6,0,16,0.90); border-bottom-color: rgba(247,37,133,0.18); }
+[data-theme="light"] .sticky-header { background: rgba(240,239,233,0.85); }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    SCROLLBAR
@@ -710,5 +559,4 @@ body {
   outline-offset: 2px;
 }
 
-[data-theme="light"]  :focus-visible { outline-color: rgba(180,83,9,0.6); }
-[data-theme="retro"]  :focus-visible { outline-color: rgba(247,37,133,0.65); }
+[data-theme="light"] :focus-visible { outline-color: rgba(180,83,9,0.6); }
