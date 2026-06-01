@@ -3,6 +3,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     database_url: str
+    cors_origins: str = "http://localhost:3000"
 
     coingecko_base_url: str = "https://api.coingecko.com/api/v3"
     mfapi_base_url: str = "https://api.mfapi.in/mf"
