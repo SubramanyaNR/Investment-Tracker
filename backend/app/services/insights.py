@@ -40,8 +40,6 @@ async def generate_gemini_observations(portfolio_summary: dict) -> dict:
     if not settings.gemini_api_key:
         return generate_rule_based_observations(portfolio_summary)
 
-    client = genai.Client(api_key=settings.gemini_api_key)
-
     prompt = f"""
 You are a portfolio observability analyst.
 
@@ -67,10 +65,15 @@ Portfolio summary:
 {json.dumps(portfolio_summary)}
 """
 
-    response = client.models.generate_content(
-        model=settings.gemini_model,
-        contents=prompt,
-    )
+    try:
+        client = genai.Client(api_key=settings.gemini_api_key)
+        response = client.models.generate_content(
+            model=settings.gemini_model,
+            contents=prompt,
+        )
+    except Exception:
+        # Gemini unavailable or auth failure — fall back to deterministic rules
+        return generate_rule_based_observations(portfolio_summary)
 
     try:
         text = response.text.strip()
