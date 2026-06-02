@@ -1,7 +1,7 @@
 from decimal import Decimal
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select, delete, and_
 from typing import Optional
 from app.db.session import AsyncSessionLocal
@@ -34,6 +34,20 @@ class AssetCreate(BaseModel):
     amount_invested: Optional[Decimal] = None   # total corpus user enters
     nav_at_purchase: Optional[Decimal] = None
     monthly_sip: Optional[Decimal] = None
+
+    @field_validator("quantity", "avg_buy_price", "principal", "amount_invested", "nav_at_purchase", "monthly_sip")
+    @classmethod
+    def _positive_amounts(cls, v, info):
+        if v is not None and v <= 0:
+            raise ValueError(f"{info.field_name} must be greater than zero")
+        return v
+
+    @field_validator("annual_rate")
+    @classmethod
+    def _non_negative_rate(cls, v):
+        if v is not None and v < 0:
+            raise ValueError("annual_rate must not be negative")
+        return v
 
 
 async def get_session():
@@ -372,7 +386,7 @@ async def delete_asset(asset_id: str, session=Depends(get_session)):
 
 
 class CryptoSellRequest(BaseModel):
-    quantity: Decimal
+    quantity: Decimal = Field(gt=0)
 
 
 @router.post("/assets/{asset_id}/sell-crypto")
@@ -405,7 +419,7 @@ async def sell_crypto(asset_id: str, payload: CryptoSellRequest, session=Depends
 
 
 class MFRedeemRequest(BaseModel):
-    units: Decimal
+    units: Decimal = Field(gt=0)
 
 
 @router.post("/assets/{asset_id}/redeem-mf")
@@ -438,7 +452,7 @@ async def redeem_mf(asset_id: str, payload: MFRedeemRequest, session=Depends(get
 
 
 class TopUpRequest(BaseModel):
-    amount: Decimal
+    amount: Decimal = Field(gt=0)
 
 
 @router.post("/assets/{asset_id}/top-up")

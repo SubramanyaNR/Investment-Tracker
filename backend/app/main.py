@@ -1,6 +1,5 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.db.init_db import init_db
 from app.api.dashboard import router as dashboard_router
 from app.api.assets import router as assets_router
 from app.api.insights import router as insights_router
@@ -27,7 +26,7 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup():
-    await init_db()
+    # Schema is managed by Alembic — run `alembic upgrade head` on deploy, not here.
     if settings.scheduler_enabled:
         start_scheduler()
 
