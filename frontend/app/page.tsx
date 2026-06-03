@@ -13,6 +13,7 @@ import MutualFundSelector from "@/components/MutualFundSelector";
 import NetWorthChart     from "@/components/NetWorthChart";
 import AllocationCharts  from "@/components/AllocationCharts";
 import ThemeSwitcher     from "@/components/ThemeSwitcher";
+import { useAuth }       from "@/components/AuthProvider";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -50,6 +51,8 @@ function fmtQty(n: number) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 export default function DashboardPage() {
+
+  const { signOut } = useAuth();
 
   // ── Data ──
   const [dashboard,    setDashboard]    = useState<Dashboard>({ total_value: 0, total_invested: 0, total_pnl: 0 });
@@ -325,6 +328,9 @@ export default function DashboardPage() {
               {refreshing ? "Refreshing…" : "Refresh"}
             </button>
             <ThemeSwitcher />
+            <button type="button" onClick={signOut} className="btn-refresh" aria-label="Sign out">
+              Sign out
+            </button>
           </div>
 
         </div>

@@ -1,5 +1,13 @@
+import { supabase } from "./supabase";
+
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+
+async function authHeaders(): Promise<Record<string, string>> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -83,7 +91,10 @@ export type TxRecord = {
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE_URL}${path}`, { cache: "no-store" });
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    cache: "no-store",
+    headers: await authHeaders(),
+  });
   if (!res.ok) throw new Error(`GET ${path} failed: ${res.status}`);
   return res.json();
 }
@@ -91,7 +102,10 @@ async function get<T>(path: string): Promise<T> {
 async function post<T>(path: string, body?: unknown): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method: "POST",
-    headers: body ? { "Content-Type": "application/json" } : undefined,
+    headers: {
+      ...(body ? { "Content-Type": "application/json" } : {}),
+      ...(await authHeaders()),
+    },
     body: body ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) {
@@ -143,7 +157,10 @@ export async function createAsset(payload: {
 }
 
 export async function deleteAsset(assetId: string) {
-  const res = await fetch(`${API_BASE_URL}/assets/${assetId}`, { method: "DELETE" });
+  const res = await fetch(`${API_BASE_URL}/assets/${assetId}`, {
+    method: "DELETE",
+    headers: await authHeaders(),
+  });
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`DELETE /assets/${assetId} failed: ${res.status} ${text}`);

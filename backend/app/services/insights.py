@@ -1,4 +1,5 @@
 import json
+import uuid
 from datetime import date
 from google import genai
 from app.core.config import settings
@@ -97,13 +98,14 @@ Portfolio summary:
         }
 
 
-async def generate_ai_insights(session, portfolio_summary: dict) -> AIInsight:
+async def generate_ai_insights(session, user_id: uuid.UUID, portfolio_summary: dict) -> AIInsight:
     if settings.ai_provider == "gemini":
         observations = await generate_gemini_observations(portfolio_summary)
     else:
         observations = generate_rule_based_observations(portfolio_summary)
 
     insight = AIInsight(
+        user_id=user_id,
         insight_date=date.today(),
         observations=observations,
         model=settings.gemini_model if settings.ai_provider == "gemini" else "rules",

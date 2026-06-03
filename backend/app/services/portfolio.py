@@ -1,3 +1,4 @@
+import uuid
 from datetime import date
 from decimal import Decimal
 from sqlalchemy import select, func, and_, delete
@@ -5,18 +6,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import ValuationHistory, PortfolioSnapshot
 
 
-async def get_dashboard(session: AsyncSession) -> dict:
+async def get_dashboard(session: AsyncSession, user_id: uuid.UUID) -> dict:
     # Latest valuation per asset only — prevents double-counting across multiple recalculate calls
     subq = (
         select(
             ValuationHistory.asset_id,
             func.max(ValuationHistory.valuation_date).label("latest_date"),
         )
+        .where(ValuationHistory.user_id == user_id)
         .group_by(ValuationHistory.asset_id)
         .subquery()
     )
     result = await session.execute(
-        select(ValuationHistory).join(
+        select(ValuationHistory)
+        .where(ValuationHistory.user_id == user_id)
+        .join(
             subq,
             and_(
                 ValuationHistory.asset_id == subq.c.asset_id,
@@ -38,15 +42,21 @@ async def get_dashboard(session: AsyncSession) -> dict:
     }
 
 
-async def create_or_update_snapshot(session: AsyncSession) -> PortfolioSnapshot:
+async def create_or_update_snapshot(session: AsyncSession, user_id: uuid.UUID) -> PortfolioSnapshot:
     """Upsert today's snapshot — safe to call multiple times per day."""
-    dashboard = await get_dashboard(session)
+    dashboard = await get_dashboard(session, user_id)
     today = date.today()
 
     await session.execute(
-        delete(PortfolioSnapshot).where(PortfolioSnapshot.snapshot_date == today)
+        delete(PortfolioSnapshot).where(
+            and_(
+                PortfolioSnapshot.user_id == user_id,
+                PortfolioSnapshot.snapshot_date == today,
+            )
+        )
     )
     snapshot = PortfolioSnapshot(
+        user_id=user_id,
         snapshot_date=today,
         total_invested=dashboard["total_invested"],
         total_value=dashboard["total_value"],
