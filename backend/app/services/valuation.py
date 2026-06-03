@@ -1,3 +1,4 @@
+import uuid
 from datetime import date
 from decimal import Decimal
 from sqlalchemy import select, delete, and_
@@ -10,6 +11,7 @@ from app.services.fixed_income import compound_value
 
 async def _upsert_valuation(
     session: AsyncSession,
+    user_id: uuid.UUID,
     asset_id,
     invested: Decimal,
     current: Decimal,
@@ -26,6 +28,7 @@ async def _upsert_valuation(
         )
     )
     session.add(ValuationHistory(
+        user_id=user_id,
         asset_id=asset_id,
         valuation_date=date.today(),
         invested_amount=invested,
@@ -35,11 +38,11 @@ async def _upsert_valuation(
     ))
 
 
-async def recalculate_crypto_valuations(session: AsyncSession) -> list[dict]:
+async def recalculate_crypto_valuations(session: AsyncSession, user_id: uuid.UUID) -> list[dict]:
     result = await session.execute(
         select(Asset, CryptoHolding)
         .join(CryptoHolding, CryptoHolding.asset_id == Asset.id)
-        .where(Asset.asset_type == "CRYPTO")
+        .where(and_(Asset.asset_type == "CRYPTO", Asset.user_id == user_id))
     )
     rows = result.all()
     if not rows:
@@ -58,7 +61,7 @@ async def recalculate_crypto_valuations(session: AsyncSession) -> list[dict]:
         current = quantity * price
         pnl = current - invested
 
-        await _upsert_valuation(session, asset.id, invested, current, pnl, "coingecko")
+        await _upsert_valuation(session, user_id, asset.id, invested, current, pnl, "coingecko")
 
         output.append({
             "asset": asset.name,
@@ -79,10 +82,11 @@ def _rd_months_elapsed(start_date: date, as_of: date) -> int:
     return max(1, months)
 
 
-async def recalculate_fixed_income_valuations(session: AsyncSession) -> list[dict]:
+async def recalculate_fixed_income_valuations(session: AsyncSession, user_id: uuid.UUID) -> list[dict]:
     result = await session.execute(
         select(Asset, FixedIncomeHolding)
         .join(FixedIncomeHolding, FixedIncomeHolding.asset_id == Asset.id)
+        .where(Asset.user_id == user_id)
     )
     rows = result.all()
     if not rows:
@@ -106,7 +110,7 @@ async def recalculate_fixed_income_valuations(session: AsyncSession) -> list[dic
         current = compound_value(invested, rate, holding.start_date, today, freq)
         pnl = current - invested
 
-        await _upsert_valuation(session, asset.id, invested, current, pnl, "compound_interest")
+        await _upsert_valuation(session, user_id, asset.id, invested, current, pnl, "compound_interest")
 
         output.append({
             "asset": asset.name,
@@ -120,11 +124,11 @@ async def recalculate_fixed_income_valuations(session: AsyncSession) -> list[dic
     return output
 
 
-async def recalculate_mf_valuations(session: AsyncSession) -> list[dict]:
+async def recalculate_mf_valuations(session: AsyncSession, user_id: uuid.UUID) -> list[dict]:
     result = await session.execute(
         select(Asset, MutualFundHolding)
         .join(MutualFundHolding, MutualFundHolding.asset_id == Asset.id)
-        .where(Asset.asset_type == "MUTUAL_FUND")
+        .where(and_(Asset.asset_type == "MUTUAL_FUND", Asset.user_id == user_id))
     )
     rows = result.all()
     if not rows:
@@ -145,7 +149,7 @@ async def recalculate_mf_valuations(session: AsyncSession) -> list[dict]:
         current = units * current_nav
         pnl = current - invested
 
-        await _upsert_valuation(session, asset.id, invested, current, pnl, "mfapi")
+        await _upsert_valuation(session, user_id, asset.id, invested, current, pnl, "mfapi")
 
         output.append({
             "asset": asset.name,

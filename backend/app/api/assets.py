@@ -1,3 +1,4 @@
+import uuid
 from decimal import Decimal
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException
@@ -7,6 +8,7 @@ from typing import Optional
 from app.db.session import AsyncSessionLocal
 from app.db.models import Asset, CryptoHolding, FixedIncomeHolding, MutualFundHolding, Transaction, ValuationHistory
 from app.services.fixed_income import compound_value
+from app.core.auth import get_current_user_id
 
 router = APIRouter()
 
@@ -73,6 +75,7 @@ def _rd_months_elapsed(start_date: date, as_of: date) -> int:
 
 async def _write_initial_valuation(
     session,
+    user_id: uuid.UUID,
     asset_id,
     invested: Decimal,
     current: Decimal,
@@ -89,6 +92,7 @@ async def _write_initial_valuation(
         )
     )
     session.add(ValuationHistory(
+        user_id=user_id,
         asset_id=asset_id,
         valuation_date=date.today(),
         invested_amount=invested,
@@ -99,8 +103,13 @@ async def _write_initial_valuation(
 
 
 @router.get("/assets")
-async def list_assets(session=Depends(get_session)):
-    result = await session.execute(select(Asset).order_by(Asset.created_at.desc()))
+async def list_assets(
+    session=Depends(get_session),
+    user_id: uuid.UUID = Depends(get_current_user_id),
+):
+    result = await session.execute(
+        select(Asset).where(Asset.user_id == user_id).order_by(Asset.created_at.desc())
+    )
     assets = result.scalars().all()
 
     if not assets:
@@ -161,7 +170,11 @@ async def list_assets(session=Depends(get_session)):
 
 
 @router.post("/assets")
-async def create_asset(payload: AssetCreate, session=Depends(get_session)):
+async def create_asset(
+    payload: AssetCreate,
+    session=Depends(get_session),
+    user_id: uuid.UUID = Depends(get_current_user_id),
+):
 
     # ── CRYPTO ──────────────────────────────────────────────────────────────
     if payload.asset_type == "CRYPTO":
@@ -172,7 +185,12 @@ async def create_asset(payload: AssetCreate, session=Depends(get_session)):
         add_price = payload.avg_buy_price or Decimal("0")
 
         existing_result = await session.execute(
-            select(CryptoHolding).where(CryptoHolding.coingecko_id == payload.coingecko_id)
+            select(CryptoHolding).where(
+                and_(
+                    CryptoHolding.coingecko_id == payload.coingecko_id,
+                    CryptoHolding.user_id == user_id,
+                )
+            )
         )
         existing = existing_result.scalar_one_or_none()
 
@@ -186,6 +204,7 @@ async def create_asset(payload: AssetCreate, session=Depends(get_session)):
             new_avg = Decimal(str(existing.avg_buy_price))
 
             session.add(Transaction(
+                user_id=user_id,
                 asset_id=existing.asset_id,
                 transaction_type="BUY",
                 transaction_date=date.today(),
@@ -194,7 +213,7 @@ async def create_asset(payload: AssetCreate, session=Depends(get_session)):
                 price_per_unit=add_price,
             ))
             invested = Decimal(str(total_qty)) * new_avg
-            await _write_initial_valuation(session, existing.asset_id, invested, invested, Decimal("0"))
+            await _write_initial_valuation(session, user_id, existing.asset_id, invested, invested, Decimal("0"))
             await session.commit()
 
             asset_result = await session.execute(
@@ -203,6 +222,7 @@ async def create_asset(payload: AssetCreate, session=Depends(get_session)):
             asset = asset_result.scalar_one()
         else:
             asset = Asset(
+                user_id=user_id,
                 name=payload.name,
                 asset_type=payload.asset_type,
                 category=payload.category,
@@ -212,6 +232,7 @@ async def create_asset(payload: AssetCreate, session=Depends(get_session)):
             await session.flush()
 
             session.add(CryptoHolding(
+                user_id=user_id,
                 asset_id=asset.id,
                 coingecko_id=payload.coingecko_id,
                 symbol=payload.symbol,
@@ -219,6 +240,7 @@ async def create_asset(payload: AssetCreate, session=Depends(get_session)):
                 avg_buy_price=add_price,
             ))
             session.add(Transaction(
+                user_id=user_id,
                 asset_id=asset.id,
                 transaction_type="BUY",
                 transaction_date=date.today(),
@@ -227,7 +249,7 @@ async def create_asset(payload: AssetCreate, session=Depends(get_session)):
                 price_per_unit=add_price,
             ))
             invested = add_qty * add_price
-            await _write_initial_valuation(session, asset.id, invested, invested, Decimal("0"))
+            await _write_initial_valuation(session, user_id, asset.id, invested, invested, Decimal("0"))
             await session.commit()
             await session.refresh(asset)
 
@@ -249,7 +271,12 @@ async def create_asset(payload: AssetCreate, session=Depends(get_session)):
         add_amount = payload.amount_invested
 
         existing_result = await session.execute(
-            select(MutualFundHolding).where(MutualFundHolding.scheme_code == payload.scheme_code)
+            select(MutualFundHolding).where(
+                and_(
+                    MutualFundHolding.scheme_code == payload.scheme_code,
+                    MutualFundHolding.user_id == user_id,
+                )
+            )
         )
         existing = existing_result.scalar_one_or_none()
 
@@ -264,6 +291,7 @@ async def create_asset(payload: AssetCreate, session=Depends(get_session)):
                 existing.monthly_sip = payload.monthly_sip
 
             session.add(Transaction(
+                user_id=user_id,
                 asset_id=existing.asset_id,
                 transaction_type="BUY",
                 transaction_date=date.today(),
@@ -272,7 +300,7 @@ async def create_asset(payload: AssetCreate, session=Depends(get_session)):
                 price_per_unit=add_nav,
             ))
             total_invested = Decimal(str(total_units)) * Decimal(str(existing.nav_at_purchase))
-            await _write_initial_valuation(session, existing.asset_id, total_invested, total_invested, Decimal("0"))
+            await _write_initial_valuation(session, user_id, existing.asset_id, total_invested, total_invested, Decimal("0"))
             await session.commit()
 
             asset_result = await session.execute(
@@ -281,6 +309,7 @@ async def create_asset(payload: AssetCreate, session=Depends(get_session)):
             asset = asset_result.scalar_one()
         else:
             asset = Asset(
+                user_id=user_id,
                 name=payload.name,
                 asset_type=payload.asset_type,
                 category=payload.category,
@@ -290,6 +319,7 @@ async def create_asset(payload: AssetCreate, session=Depends(get_session)):
             await session.flush()
 
             session.add(MutualFundHolding(
+                user_id=user_id,
                 asset_id=asset.id,
                 scheme_code=payload.scheme_code,
                 units=add_units,
@@ -297,6 +327,7 @@ async def create_asset(payload: AssetCreate, session=Depends(get_session)):
                 monthly_sip=payload.monthly_sip,
             ))
             session.add(Transaction(
+                user_id=user_id,
                 asset_id=asset.id,
                 transaction_type="BUY",
                 transaction_date=date.today(),
@@ -304,7 +335,7 @@ async def create_asset(payload: AssetCreate, session=Depends(get_session)):
                 units=add_units,
                 price_per_unit=add_nav,
             ))
-            await _write_initial_valuation(session, asset.id, add_amount, add_amount, Decimal("0"))
+            await _write_initial_valuation(session, user_id, asset.id, add_amount, add_amount, Decimal("0"))
             await session.commit()
             await session.refresh(asset)
 
@@ -330,6 +361,7 @@ async def create_asset(payload: AssetCreate, session=Depends(get_session)):
         fi_current = compound_value(fi_invested, payload.annual_rate, payload.start_date, today, freq)
 
         asset = Asset(
+            user_id=user_id,
             name=payload.name,
             asset_type=payload.asset_type,
             category=payload.category,
@@ -339,6 +371,7 @@ async def create_asset(payload: AssetCreate, session=Depends(get_session)):
         await session.flush()
 
         session.add(FixedIncomeHolding(
+            user_id=user_id,
             asset_id=asset.id,
             principal=payload.principal,
             annual_rate=payload.annual_rate,
@@ -347,6 +380,7 @@ async def create_asset(payload: AssetCreate, session=Depends(get_session)):
             compounding_frequency=freq,
         ))
         session.add(Transaction(
+            user_id=user_id,
             asset_id=asset.id,
             transaction_type="DEPOSIT",
             transaction_date=payload.start_date,
@@ -354,13 +388,14 @@ async def create_asset(payload: AssetCreate, session=Depends(get_session)):
             units=None,
             price_per_unit=None,
         ))
-        await _write_initial_valuation(session, asset.id, fi_invested, fi_current, fi_current - fi_invested)
+        await _write_initial_valuation(session, user_id, asset.id, fi_invested, fi_current, fi_current - fi_invested)
         await session.commit()
         await session.refresh(asset)
         return _asset_row(asset)
 
     # ── OTHER ────────────────────────────────────────────────────────────────
     asset = Asset(
+        user_id=user_id,
         name=payload.name,
         asset_type=payload.asset_type,
         category=payload.category,
@@ -373,8 +408,14 @@ async def create_asset(payload: AssetCreate, session=Depends(get_session)):
 
 
 @router.delete("/assets/{asset_id}")
-async def delete_asset(asset_id: str, session=Depends(get_session)):
-    result = await session.execute(select(Asset).where(Asset.id == asset_id))
+async def delete_asset(
+    asset_id: str,
+    session=Depends(get_session),
+    user_id: uuid.UUID = Depends(get_current_user_id),
+):
+    result = await session.execute(
+        select(Asset).where(and_(Asset.id == asset_id, Asset.user_id == user_id))
+    )
     asset = result.scalar_one_or_none()
 
     if not asset:
@@ -390,9 +431,16 @@ class CryptoSellRequest(BaseModel):
 
 
 @router.post("/assets/{asset_id}/sell-crypto")
-async def sell_crypto(asset_id: str, payload: CryptoSellRequest, session=Depends(get_session)):
+async def sell_crypto(
+    asset_id: str,
+    payload: CryptoSellRequest,
+    session=Depends(get_session),
+    user_id: uuid.UUID = Depends(get_current_user_id),
+):
     result = await session.execute(
-        select(CryptoHolding).where(CryptoHolding.asset_id == asset_id)
+        select(CryptoHolding).where(
+            and_(CryptoHolding.asset_id == asset_id, CryptoHolding.user_id == user_id)
+        )
     )
     holding = result.scalar_one_or_none()
 
@@ -406,6 +454,7 @@ async def sell_crypto(asset_id: str, payload: CryptoSellRequest, session=Depends
     holding.quantity = holding.quantity - payload.quantity
 
     session.add(Transaction(
+        user_id=user_id,
         asset_id=holding.asset_id,
         transaction_type="SELL",
         transaction_date=date.today(),
@@ -423,9 +472,16 @@ class MFRedeemRequest(BaseModel):
 
 
 @router.post("/assets/{asset_id}/redeem-mf")
-async def redeem_mf(asset_id: str, payload: MFRedeemRequest, session=Depends(get_session)):
+async def redeem_mf(
+    asset_id: str,
+    payload: MFRedeemRequest,
+    session=Depends(get_session),
+    user_id: uuid.UUID = Depends(get_current_user_id),
+):
     result = await session.execute(
-        select(MutualFundHolding).where(MutualFundHolding.asset_id == asset_id)
+        select(MutualFundHolding).where(
+            and_(MutualFundHolding.asset_id == asset_id, MutualFundHolding.user_id == user_id)
+        )
     )
     holding = result.scalar_one_or_none()
 
@@ -439,6 +495,7 @@ async def redeem_mf(asset_id: str, payload: MFRedeemRequest, session=Depends(get
     holding.units = holding.units - payload.units
 
     session.add(Transaction(
+        user_id=user_id,
         asset_id=holding.asset_id,
         transaction_type="SELL",
         transaction_date=date.today(),
@@ -456,8 +513,15 @@ class TopUpRequest(BaseModel):
 
 
 @router.post("/assets/{asset_id}/top-up")
-async def top_up_savings(asset_id: str, payload: TopUpRequest, session=Depends(get_session)):
-    asset_result = await session.execute(select(Asset).where(Asset.id == asset_id))
+async def top_up_savings(
+    asset_id: str,
+    payload: TopUpRequest,
+    session=Depends(get_session),
+    user_id: uuid.UUID = Depends(get_current_user_id),
+):
+    asset_result = await session.execute(
+        select(Asset).where(and_(Asset.id == asset_id, Asset.user_id == user_id))
+    )
     asset = asset_result.scalar_one_or_none()
     if not asset or asset.asset_type not in {"SAVINGS_ACC", "PPF"}:
         raise HTTPException(status_code=404, detail="Asset does not support top-up")
@@ -475,6 +539,7 @@ async def top_up_savings(asset_id: str, payload: TopUpRequest, session=Depends(g
     new_principal = Decimal(str(holding.principal))
 
     session.add(Transaction(
+        user_id=user_id,
         asset_id=asset_id,
         transaction_type="DEPOSIT",
         transaction_date=date.today(),
@@ -484,7 +549,7 @@ async def top_up_savings(asset_id: str, payload: TopUpRequest, session=Depends(g
     ))
 
     fi_current = compound_value(new_principal, Decimal(str(holding.annual_rate)), holding.start_date, date.today(), holding.compounding_frequency)
-    await _write_initial_valuation(session, asset_id, new_principal, fi_current, fi_current - new_principal)
+    await _write_initial_valuation(session, user_id, asset_id, new_principal, fi_current, fi_current - new_principal)
     await session.commit()
 
     return {"asset_id": asset_id, "new_principal": float(new_principal)}

@@ -13,7 +13,10 @@ scheduler = AsyncIOScheduler()
 
 async def daily_snapshot_job():
     async with AsyncSessionLocal() as session:
-        await create_or_update_snapshot(session)
+        result = await session.execute(select(Asset.user_id).distinct())
+        user_ids = result.scalars().all()
+        for user_id in user_ids:
+            await create_or_update_snapshot(session, user_id)
 
 
 async def monthly_sip_job():
@@ -46,6 +49,7 @@ async def monthly_sip_job():
             holding.units = total_units
 
             session.add(Transaction(
+                user_id=holding.user_id,
                 asset_id=holding.asset_id,
                 transaction_type="BUY",
                 transaction_date=date.today(),

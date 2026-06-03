@@ -1,3 +1,4 @@
+import uuid
 from fastapi import APIRouter, Depends
 from sqlalchemy import select, func, and_
 from app.db.session import AsyncSessionLocal
@@ -8,6 +9,7 @@ from app.services.valuation import (
     recalculate_mf_valuations,
 )
 from app.services.portfolio import create_or_update_snapshot
+from app.core.auth import get_current_user_id
 
 router = APIRouter()
 
@@ -18,26 +20,35 @@ async def get_session():
 
 
 @router.post("/valuations/recalculate")
-async def recalculate(session=Depends(get_session)):
-    crypto = await recalculate_crypto_valuations(session)
-    fi = await recalculate_fixed_income_valuations(session)
-    mf = await recalculate_mf_valuations(session)
-    await create_or_update_snapshot(session)
+async def recalculate(
+    session=Depends(get_session),
+    user_id: uuid.UUID = Depends(get_current_user_id),
+):
+    crypto = await recalculate_crypto_valuations(session, user_id)
+    fi = await recalculate_fixed_income_valuations(session, user_id)
+    mf = await recalculate_mf_valuations(session, user_id)
+    await create_or_update_snapshot(session, user_id)
     return {"crypto": crypto, "fixed_income": fi, "mutual_funds": mf}
 
 
 @router.get("/valuations/latest")
-async def latest_valuations(session=Depends(get_session)):
+async def latest_valuations(
+    session=Depends(get_session),
+    user_id: uuid.UUID = Depends(get_current_user_id),
+):
     subq = (
         select(
             ValuationHistory.asset_id,
             func.max(ValuationHistory.valuation_date).label("latest_date"),
         )
+        .where(ValuationHistory.user_id == user_id)
         .group_by(ValuationHistory.asset_id)
         .subquery()
     )
     result = await session.execute(
-        select(ValuationHistory).join(
+        select(ValuationHistory)
+        .where(ValuationHistory.user_id == user_id)
+        .join(
             subq,
             and_(
                 ValuationHistory.asset_id == subq.c.asset_id,
