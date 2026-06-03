@@ -18,8 +18,10 @@ def get_current_user_id(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
 ) -> uuid.UUID:
     if credentials is None:
-        raise HTTPException(status_code=401, detail="Missing bearer token")
+        raise HTTPException(status_code=401, detail="Not authenticated")
 
+    # Generic 401 detail on every failure path: the specific reason (expired,
+    # bad signature, unknown kid, …) is an internal detail not worth disclosing.
     token = credentials.credentials
     try:
         signing_key = _jwk_client.get_signing_key_from_jwt(token).key
@@ -31,11 +33,6 @@ def get_current_user_id(
             audience=settings.supabase_jwt_audience,
             options={"require": ["exp", "sub", "iss", "aud"]},
         )
-    except jwt.PyJWTError as exc:
-        raise HTTPException(status_code=401, detail=f"Invalid token: {exc}") from exc
-
-    sub = claims.get("sub")
-    try:
-        return uuid.UUID(sub)
-    except (ValueError, TypeError) as exc:
-        raise HTTPException(status_code=401, detail="Invalid subject claim") from exc
+        return uuid.UUID(claims["sub"])
+    except (jwt.PyJWTError, ValueError, TypeError) as exc:
+        raise HTTPException(status_code=401, detail="Invalid or expired token") from exc

@@ -22,6 +22,7 @@ async def _upsert_valuation(
     await session.execute(
         delete(ValuationHistory).where(
             and_(
+                ValuationHistory.user_id == user_id,
                 ValuationHistory.asset_id == asset_id,
                 ValuationHistory.valuation_date == date.today(),
             )

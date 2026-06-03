@@ -86,6 +86,7 @@ async def _write_initial_valuation(
     await session.execute(
         delete(ValuationHistory).where(
             and_(
+                ValuationHistory.user_id == user_id,
                 ValuationHistory.asset_id == asset_id,
                 ValuationHistory.valuation_date == date.today(),
             )
@@ -529,7 +530,9 @@ async def top_up_savings(
         raise HTTPException(status_code=400, detail="Top-up amount must be positive")
 
     fi_result = await session.execute(
-        select(FixedIncomeHolding).where(FixedIncomeHolding.asset_id == asset_id)
+        select(FixedIncomeHolding).where(
+            and_(FixedIncomeHolding.asset_id == asset_id, FixedIncomeHolding.user_id == user_id)
+        )
     )
     holding = fi_result.scalar_one_or_none()
     if not holding:
