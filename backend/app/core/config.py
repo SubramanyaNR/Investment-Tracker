@@ -2,7 +2,10 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
+    # Request-path connection: non-superuser `app_user` role, subject to RLS.
     database_url: str
+    # Admin connection: superuser role for migrations + the scheduler (sees all tenants).
+    admin_database_url: str
     cors_origins: str = "http://localhost:3000"
 
     coingecko_base_url: str = "https://api.coingecko.com/api/v3"

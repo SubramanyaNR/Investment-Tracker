@@ -15,8 +15,8 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Override the URL from alembic.ini with the one from our .env file
-config.set_main_option("sqlalchemy.url", settings.database_url)
+# Migrations run as the admin role (app_user lacks DDL/ownership privileges).
+config.set_main_option("sqlalchemy.url", settings.admin_database_url)
 
 # This is what autogenerate compares against the live DB
 target_metadata = Base.metadata

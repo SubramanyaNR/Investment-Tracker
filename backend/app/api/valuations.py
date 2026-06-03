@@ -1,7 +1,7 @@
 import uuid
 from fastapi import APIRouter, Depends
 from sqlalchemy import select, func, and_
-from app.db.session import AsyncSessionLocal
+from app.api.deps import get_session
 from app.db.models import ValuationHistory
 from app.services.valuation import (
     recalculate_crypto_valuations,
@@ -12,11 +12,6 @@ from app.services.portfolio import create_or_update_snapshot
 from app.core.auth import get_current_user_id
 
 router = APIRouter()
-
-
-async def get_session():
-    async with AsyncSessionLocal() as session:
-        yield session
 
 
 @router.post("/valuations/recalculate")

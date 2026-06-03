@@ -1,18 +1,13 @@
 import uuid
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
-from app.db.session import AsyncSessionLocal
+from app.api.deps import get_session
 from app.services.portfolio import get_dashboard
 from app.services.insights import generate_ai_insights
 from app.db.models import AIInsight
 from app.core.auth import get_current_user_id
 
 router = APIRouter()
-
-
-async def get_session():
-    async with AsyncSessionLocal() as session:
-        yield session
 
 
 @router.post("/insights/refresh")
