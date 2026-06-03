@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select, delete, and_
 from typing import Optional
-from app.db.session import AsyncSessionLocal
+from app.api.deps import get_session
 from app.db.models import Asset, CryptoHolding, FixedIncomeHolding, MutualFundHolding, Transaction, ValuationHistory
 from app.services.fixed_income import compound_value
 from app.core.auth import get_current_user_id
@@ -50,11 +50,6 @@ class AssetCreate(BaseModel):
         if v is not None and v < 0:
             raise ValueError("annual_rate must not be negative")
         return v
-
-
-async def get_session():
-    async with AsyncSessionLocal() as session:
-        yield session
 
 
 def _asset_row(asset: Asset) -> dict:

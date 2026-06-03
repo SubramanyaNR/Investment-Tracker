@@ -2,7 +2,7 @@ from decimal import Decimal
 from datetime import date
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy import select
-from app.db.session import AsyncSessionLocal
+from app.db.session import AdminSessionLocal
 from app.db.models import Asset, MutualFundHolding, Transaction
 from app.integrations.mfapi import get_latest_nav
 from app.services.portfolio import create_or_update_snapshot
@@ -12,7 +12,7 @@ scheduler = AsyncIOScheduler()
 
 
 async def daily_snapshot_job():
-    async with AsyncSessionLocal() as session:
+    async with AdminSessionLocal() as session:
         result = await session.execute(select(Asset.user_id).distinct())
         user_ids = result.scalars().all()
         for user_id in user_ids:
@@ -21,7 +21,7 @@ async def daily_snapshot_job():
 
 async def monthly_sip_job():
     """Runs 1st of each month — buys new units at current NAV for all active SIPs."""
-    async with AsyncSessionLocal() as session:
+    async with AdminSessionLocal() as session:
         result = await session.execute(
             select(Asset, MutualFundHolding)
             .join(MutualFundHolding, MutualFundHolding.asset_id == Asset.id)

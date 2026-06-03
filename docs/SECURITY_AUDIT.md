@@ -39,10 +39,14 @@ has no second line of defense.
   `PyJWKClient` against the project JWKS, **ES256**.
 - **Identity source:** the `sub` claim only. No Pydantic model exposes `user_id` — clients cannot
   inject identity.
-- **AuthZ:** per-row `user_id` (NOT NULL) on all 8 tables; every query carries `WHERE user_id == sub`.
-  Enforcement is **application-layer only**.
-- **RLS status:** `DATABASE_URL` connects as role `postgres` via the pooler → **bypasses Postgres
-  RLS**. The `WHERE` clauses are therefore the *sole* tenant boundary.
+- **AuthZ:** per-row `user_id` (NOT NULL) on all 8 tables; every query carries `WHERE user_id == sub`
+  (first line) plus an RLS backstop (see below).
+- **RLS status (2026-06-03 cutover):** request path connects as non-superuser **`app_user`** (no
+  BYPASSRLS) via `DATABASE_URL`; all 8 tables enforce a `tenant_isolation` policy keyed on the
+  `app.current_user_id` GUC, set per transaction (LOCAL, re-asserted on each BEGIN via an
+  `after_begin` hook reading `session.info["user_id"]`) — survives mid-request commits, cannot leak
+  across pooled connections, fail-closed (no GUC → 0 rows). Migrations + the scheduler use a separate
+  **admin** (`postgres`/BYPASSRLS) connection via `ADMIN_DATABASE_URL`.
 - **Public surface (intentional):** `/health`, `/market/*` (CoinGecko / MFAPI proxies).
 - **Frontend:** `@supabase/supabase-js` (auth-js 2.107); Bearer token attached to every API call in
   `lib/api.ts`; `AuthProvider` gate; same-origin `/api` proxy (so backend CORS is effectively unused).
@@ -115,7 +119,7 @@ None confirmed.
 ### Medium
 | ID | Finding | Status |
 |---|---|---|
-| M1 | **No RLS / superuser DB role.** Any future missing `WHERE user_id` = full-tenant breach with no backstop. Add least-privileged role + RLS keyed on JWT `sub`. | NEEDS-OPS |
+| M1 | **No RLS / superuser DB role.** Any future missing `WHERE user_id` = full-tenant breach with no backstop. Add least-privileged role + RLS keyed on JWT `sub`. | FIXED (2026-06-03) — `app_user` role + RLS policies + per-request GUC; verified fail-closed & no cross-tenant leak. See §11. |
 | M2 | **No rate limiting + JWKS amplification (DoS).** Each unknown-`kid` token forces one outbound JWKS fetch (30s timeout, threadpool thread). Public uncached `/market/*` lets anon traffic burn upstream rate limits. | OPEN |
 | M3 | **OAuth `implicit` flow (token in URL).** supabase-js defaults to implicit → access/refresh tokens in URL fragment (history/referrer exposure). Set `flowType: 'pkce'`. | FIXED (2026-06-03) |
 | M4 | **No token revocation.** Stateless verify → deleted/banned user keeps access until `exp`. Mitigate with short token lifetime. | NEEDS-OPS |
@@ -124,9 +128,9 @@ None confirmed.
 | ID | Finding | Status |
 |---|---|---|
 | L1 | `top_up_savings` FI-holding lookup and valuation `delete` not user-scoped (safe today via preceding ownership gate). | FIXED (2026-06-03) |
-| L2 | No DB constraint that a child row's `user_id` matches its asset's `user_id`. | OPEN |
-| L3 | `CORS_ORIGINS` not the real VM origin (moot due to same-origin proxy). | OPEN |
-| L4 | `ai_insights` / `portfolio_snapshots` don't cascade from `assets`; no account-deletion path → orphaned per-user rows. | OPEN |
+| L2 | No DB constraint that a child row's `user_id` matches its asset's `user_id`. | FIXED (2026-06-03) — composite FK `(asset_id,user_id)`→`assets(id,user_id)` on child tables. |
+| L3 | `CORS_ORIGINS` not the real VM origin (moot due to same-origin proxy). | OPEN (revisit at VPS domain) |
+| L4 | `ai_insights` / `portfolio_snapshots` don't cascade from `assets`; no account-deletion path → orphaned per-user rows. | FIXED (2026-06-03) — `DELETE /account` purges all caller rows (auth-user deletion still needs admin API). |
 | L5 | Auth error responses echoed library detail. | FIXED (2026-06-03) |
 | L6 | Snapshot upsert and asset merge not atomic; concurrent requests can race the unique constraint. | OPEN |
 
@@ -154,16 +158,37 @@ filter by owner.
 
 ## 8. Required before production
 
-1. **M1** — least-privileged DB role + Postgres RLS backstop.
+1. **M1** — least-privileged DB role + Postgres RLS backstop. *(done — see §11)*
 2. **M2** — rate limiting (per-IP/per-user); short-circuit repeated unknown-`kid` tokens; cache `/market/*`.
 3. **M3** — PKCE flow. *(done)*
-4. Set real `NEXT_PUBLIC_SUPABASE_ANON_KEY`; require email confirmation; correct Supabase Site/Redirect URLs.
+4. Set real `NEXT_PUBLIC_SUPABASE_ANON_KEY` *(done)*; require email confirmation + shorten token TTL (dashboard); correct Supabase Site/Redirect URLs at VPS.
 
 ## 9. Recommended
 5. **M4** short token lifetime + documented revocation expectations.
-6. **L1/L2** user-scope remaining queries *(L1 done)* + child↔asset `user_id` consistency constraint.
-7. Automated test suite covering the Section 7 matrices.
-8. Account-deletion / data-lifecycle path (**L4**); fix CORS origin (**L3**).
+6. **L1/L2** user-scope remaining queries *(done)* + child↔asset `user_id` consistency constraint *(done)*.
+7. Automated test suite covering the Section 7 matrices. *(still recommended — fixes above were verified by one-off scripts, not committed tests)*
+8. Account-deletion path *(done, L4)*; fix CORS origin at VPS (**L3**).
 
 ## 10. Nice-to-have
 9. Generic error messages *(done, L5)*; atomic upserts via `ON CONFLICT` (**L6**); structured auth logging/alerting.
+
+## 11. RLS deploy/ops notes
+
+The `app_user` role is **cluster-level** (holds a password) so it is **not** created by migrations.
+On a fresh database, provision it once before pointing the app at it:
+
+```sql
+CREATE ROLE app_user LOGIN PASSWORD '<strong-password>' NOINHERIT;
+-- grants are (re)applied idempotently by migration 6a8bdc1bb742, but for a brand-new
+-- DB you can also grant directly:
+GRANT USAGE ON SCHEMA public TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_user;
+```
+
+Then set both env vars: `DATABASE_URL` (app_user, pooler username `app_user.<ref>`) and
+`ADMIN_DATABASE_URL` (postgres). Run `alembic upgrade head` (uses the admin role).
+**Never** give `app_user` `BYPASSRLS` or table ownership. Migrations + the scheduler must keep
+using the admin connection. Verify after deploy: as `app_user` with no `app.current_user_id` set,
+`SELECT * FROM assets` returns 0 rows.
