@@ -4,7 +4,7 @@ FRONTEND := frontend
 API := http://127.0.0.1:8000
 WEB := http://127.0.0.1:3000
 
-.PHONY: help backend stop-backend build frontend stop-frontend dev restart stop logs validate migrate test
+.PHONY: help backend stop-backend build frontend stop-frontend dev restart stop logs validate migrate test test-int
 
 help: ## list targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-14s\033[0m %s\n",$$1,$$2}'
@@ -42,8 +42,11 @@ validate: ## quick health check of running stack
 migrate: ## alembic autogenerate+upgrade; usage: make migrate m="message"
 	cd $(BACKEND) && source .venv/bin/activate && ./migrate.sh "$(m)"
 
-test: ## run backend unit tests (A3a; integration tier added in A3b)
-	cd $(BACKEND) && .venv/bin/python -m pytest -q
+test: ## run backend unit tests (fast, no Docker)
+	cd $(BACKEND) && .venv/bin/python -m pytest -q -m "not integration"
+
+test-int: ## run backend integration tests (testcontainers Postgres; needs Docker)
+	cd $(BACKEND) && .venv/bin/python -m pytest -q -m integration
 
 backup: ## pg_dump the Supabase DB to ./backups (timestamped, keeps last 7)
 	@mkdir -p backups
