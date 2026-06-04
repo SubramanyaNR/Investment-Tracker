@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     supabase_issuer: str
     supabase_jwt_audience: str = "authenticated"
 
+    # DB TLS mode for asyncpg. Default "require" (Supabase). Set empty to disable
+    # for a local non-TLS Postgres (e.g. the integration-test container).
+    db_ssl: str | None = "require"
+
     class Config:
         env_file = ".env"
 
