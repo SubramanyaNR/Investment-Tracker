@@ -1,7 +1,8 @@
 import { supabase } from "./supabase";
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+// Same-origin proxy: next.config.ts rewrites /api/* to the backend server-side.
+// Never default to localhost:8000 or a baked host IP — see CLAUDE.md "How the app is accessed".
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api";
 
 async function authHeaders(): Promise<Record<string, string>> {
   const { data } = await supabase.auth.getSession();
