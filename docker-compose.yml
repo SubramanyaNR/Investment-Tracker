@@ -1,45 +1,33 @@
-services:
-  postgres:
-    image: postgres:16
-    container_name: investment_postgres
-    environment:
-      POSTGRES_USER: investment_user
-      POSTGRES_PASSWORD: investment_pass
-      POSTGRES_DB: investment_db
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U investment_user -d investment_db"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
+# Container stack for the VPS deploy. NOTE: the VM currently runs the app via `make dev`
+# (uvicorn + `next start`) against Supabase — this file is the basis for the VPS deploy, whose
+# container networking, frontend `output: "standalone"` build, the same-origin proxy target, and
+# nginx + Certbot (TLS) are finalized in docs/runbooks/DEPLOY.md (roadmap B1). Until then, do not
+# treat `docker compose up` as the production path.
+#
+# The database is Supabase (remote) — there is NO local Postgres service. All backend configuration,
+# including the request-path `app_user` DATABASE_URL and the admin ADMIN_DATABASE_URL, comes from
+# ./backend/.env. NEVER hardcode a DATABASE_URL here: a superuser/owner DSN bypasses Row-Level
+# Security and defeats the multi-tenancy backstop.
 
+services:
   backend:
     build: ./backend
     container_name: investment_backend
     ports:
       - "8000:8000"
-    environment:
-      DATABASE_URL: postgresql+asyncpg://investment_user:investment_pass@postgres:5432/investment_db
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
     env_file:
       - ./backend/.env
-    depends_on:
-      postgres:
-        condition: service_healthy
 
   frontend:
     build:
       context: ./frontend
       args:
-        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+        # MUST stay /api (same-origin proxy) — never localhost:8000 or a VM/VPS IP.
+        # The container proxy target and Supabase build args are finalized in B1 (DEPLOY.md);
+        # a containerised frontend build is not production-ready until then.
+        NEXT_PUBLIC_API_BASE_URL: /api
     container_name: investment_frontend
     ports:
       - "3000:3000"
     depends_on:
       - backend
-
-volumes:
-  postgres_data:
