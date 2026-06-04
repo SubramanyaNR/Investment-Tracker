@@ -1,13 +1,35 @@
-# Investment Tracker
+# WealthSignal (Investment Tracker)
 
-Personal multi-asset portfolio tracker (crypto, mutual funds, FD/RD/PPF/savings) for one Indian retail investor. FastAPI + Next.js + Postgres.
+Personal multi-asset portfolio tracker (crypto, mutual funds, FD/RD/PPF/savings) for Indian retail
+investors. **Portfolio observability** — net worth, P&L, allocation unified across platforms.
+**Not** a trading / brokerage / expense / budgeting / banking app. FastAPI + Next.js + Postgres.
 
-Deeper docs (read on demand, not auto-loaded): `docs/SCHEMA.md` (full columns), `docs/API.md` (full endpoints), `docs/ARCHITECTURE.md` (the WHY), `docs/VISION.md`, `docs/ROADMAP.md`.
+## Doc routing — load only what the task needs
+`CLAUDE.md` is the always-loaded layer; everything else is on-demand. Pick from `docs/INDEX.md`:
+- New feature / any change → `docs/operating-model/SDLC.md` (run `/feature` first)
+- What needs CEO approval → `docs/operating-model/GOVERNANCE.md`; review lenses → `ROLES.md`
+- The WHY + decisions → `docs/architecture/OVERVIEW.md`, `architecture/decisions/`
+- Schema → `architecture/DATA-MODEL.md` · API → `architecture/API.md` · auth → `architecture/AUTH.md`
+- Product → `product/VISION.md`, `product/PRINCIPLES.md`, `product/ROADMAP.md`
+- A shipped feature's behaviour → `features/<feature>.md`
+- Deploy / backup / incident / local dev / security → `runbooks/*`
+
+## How we work (operating model)
+One system reasons through seven lenses (PM, Investor Advisor, CTO, Architect, Eng Lead, QA,
+Security) and **stops at the CEO approval gate**. For any non-trivial change run **`/feature`**: it
+produces Product → Architecture → Security → Engineering → QA reviews, then **STOPS** — implement
+only after the CEO says "approved".
+
+**Gated (approval required before Edit/Write/migrate):** architecture, data model/migrations, auth,
+security, product direction, infra, prod deploy. A `PreToolUse` hook enforces this on gated code
+paths. **Free lane (no gate):** docs, tests, copy polish within approved scope. Full rules:
+`docs/operating-model/GOVERNANCE.md`. Default to monolith-first; no microservices/K8s/CQRS/event-
+sourcing without written CTO+Architect sign-off.
 
 ## Stack
-- **Backend** — FastAPI (Python 3.11), async SQLAlchemy 2.0 + asyncpg, Pydantic, HTTPX, APScheduler. Routers in `backend/app/api/`, business logic in `app/services/`, external API calls in `app/integrations/`, models in `app/db/models.py`.
+- **Backend** — FastAPI (Python 3.11), async SQLAlchemy 2.0 + asyncpg, Pydantic, HTTPX, APScheduler. Routers in `backend/app/api/`, business logic in `app/services/`, external API calls in `app/integrations/`, models in `app/db/models.py`. Auth in `app/core/auth.py`.
 - **Frontend** — Next.js 16 (App Router, all components `"use client"`), React 19, Tailwind 4, Recharts, Lucide. Every API call goes through `frontend/lib/api.ts`; response types live there too.
-- **DB** — Postgres 16 (Docker, volume `postgres_data`). UUID PKs, `Numeric` for all money.
+- **DB** — Postgres 16. UUID PKs, `Numeric` for all money. Request path connects as least-privileged `app_user` (RLS); migrations/scheduler use the admin DSN.
 - **Migrations** — Alembic via `make migrate m="..."`.
 
 > Note: this Next.js (16.x) has breaking changes vs older versions — see `frontend/AGENTS.md`; check `node_modules/next/dist/docs/` before writing Next code.
@@ -15,23 +37,24 @@ Deeper docs (read on demand, not auto-loaded): `docs/SCHEMA.md` (full columns), 
 ## Run — use `make`, never raw nohup/pkill
 - `make dev` — postgres + backend (127.0.0.1:8000) + frontend prod build (:3000)
 - `make restart` · `make stop` · `make build` · `make logs` · `make validate`
-- `make migrate m="describe change"` — alembic autogenerate → upgrade → show current
-- Logs: `/tmp/it-backend.log`, `/tmp/it-frontend.log`. Stop targets free the port (no pgrep self-match).
+- `make migrate m="describe change"` — alembic autogenerate → upgrade → show current (gated)
+- Logs: `/tmp/it-backend.log`, `/tmp/it-frontend.log`. Validate against a **prod build**, not `npm run dev`. Full table: `docs/runbooks/LOCAL-DEV.md`.
 
 ## How the app is accessed
 Browser opens `http://172.23.80.6:3000` (the VM's IP). The frontend calls **same-origin `/api`**, which `frontend/next.config.ts` `rewrites()` proxies to `http://127.0.0.1:8000`. **Never** set `NEXT_PUBLIC_API_BASE_URL` to `localhost:8000` or a hardcoded IP — keep it `/api`. Symptom of breaking this: "Failed to load dashboard data" + empty crypto/MF search.
 
-## Data model (full: docs/SCHEMA.md)
-`assets` (UUID PK) + one 1:1 holding table per type: `crypto_holdings`, `mutual_fund_holdings`, `fixed_income_holdings`; plus `transactions`, `valuation_history`, `portfolio_snapshots`, `ai_insights`. `asset_type ∈ CRYPTO | MUTUAL_FUND | FD | RD | PPF | SAVINGS_ACC`. All asset-linked tables **CASCADE DELETE** from `assets`.
+## Data model (full: `docs/architecture/DATA-MODEL.md`)
+`assets` (UUID PK) + one 1:1 holding table per type: `crypto_holdings`, `mutual_fund_holdings`, `fixed_income_holdings`; plus `transactions`, `valuation_history`, `portfolio_snapshots`, `ai_insights`. `asset_type ∈ CRYPTO | MUTUAL_FUND | FD | RD | PPF | SAVINGS_ACC`. All asset-linked tables **CASCADE DELETE** from `assets`. Every user-owned row has `user_id` (NOT NULL); every query filters by the JWT `sub` (`docs/architecture/AUTH.md`).
 
 ## Critical gotchas
-- **POST /assets merges by `scheme_code` (MF) / `coingecko_id` (crypto)** — it averages into the existing holding and returns that asset; it does NOT create a separate one. Never reuse a real asset's scheme/coin for throwaway test data on the live DB — it mutates the real asset, and a later delete cascades real data away.
-- **No DB backups exist** (`backup.sh` has never run). Destructive DB ops are irreversible — capture state first (`curl /assets`, `/transactions`).
-- Don't test against the live single-user DB with real identifiers. Use unique names + unheld scheme/coin, or a scratch DB.
+- **POST /assets merges by `scheme_code` (MF) / `coingecko_id` (crypto)** — it averages into the existing holding and returns that asset; it does NOT create a separate one. Never reuse a real asset's scheme/coin for throwaway test data on the live DB — it mutates the real asset, and a later delete cascades real data away. (Scoped per user.)
+- **No DB backups run automatically** (`make backup` is manual). Destructive DB ops are irreversible — capture state first; load the `safe-db-op` skill.
+- Don't test against the live DB with real identifiers. Use unique names + unheld scheme/coin, or a scratch DB.
 - MF valuation `invested = units × nav_at_purchase` (can differ slightly from rupees actually contributed).
 - RD invested grows monthly (`principal × months_elapsed`); FD invests full principal day 1.
 - MF NAV auto-fetched on fund select to avoid phantom day-1 P&L.
 - AI insights: Gemini with a rule-based fallback; the Gemini call is wrapped so failures fall back instead of returning 500.
+- **Never trust a client-supplied `user_id`** — identity comes only from the verified JWT `sub`; ownership checks return 404 (not 403) for another user's row.
 
 ## Coding rules
 
@@ -44,6 +67,7 @@ Browser opens `http://172.23.80.6:3000` (the VM's IP). The frontend calls **same
 - All DB ops async (`await session.execute(...)`); asyncpg only, never sync drivers.
 - New endpoints → existing router in `app/api/`; logic → `app/services/`; external calls → `app/integrations/`.
 - `Numeric` (never `Float`) for financial values.
+- Every query on a user-owned table filters by `user_id` (RLS is a backstop, not a license to skip it).
 - New/changed column → `make migrate m="..."`. Never `create_all` for schema changes in prod.
 
 ### Frontend
@@ -55,23 +79,19 @@ Browser opens `http://172.23.80.6:3000` (the VM's IP). The frontend calls **same
 ### Database / infra
 - UUID PKs, `Numeric` money, CASCADE DELETE from `assets`.
 - Never delete or edit existing migration files — new change = new migration.
-- Never commit `.env`, `.venv/`, `__pycache__/`, or `.pyc`. Secrets live in gitignored `.env`.
+- Never commit `.env`, `.venv/`, `__pycache__/`, `.pyc`, or `.claude/state/`. Secrets live in gitignored `.env` (list: `docs/runbooks/LOCAL-DEV.md`).
 
 ## Branch strategy
-`master` = stable/deployable. Prefer a feature branch + PR; push to `master` only when the user explicitly asks.
-
-## Env vars (secrets in `.env`, gitignored)
-- `backend/.env`: `DATABASE_URL`, `COINGECKO_BASE_URL`, `MFAPI_BASE_URL`, `SCHEDULER_ENABLED`, `AI_PROVIDER` (`gemini`|`rules`), `GEMINI_API_KEY`, `GEMINI_MODEL`, `CORS_ORIGINS`.
-- `frontend/.env.local`: `NEXT_PUBLIC_API_BASE_URL=/api` (baked at build — rebuild after changing).
+`master` = stable/deployable. Prefer a feature branch + PR; push to `master` only when the CEO explicitly asks.
 
 ## Known issues / tech debt
-1. No auth — single-user, shared data (top priority).
+1. Auth + multi-tenancy implemented (Supabase ES256 + RLS); **still open before paying users:** rate limiting + `/market/*` caching (audit M2), short token TTL/revocation (M4). See `docs/runbooks/SECURITY-AUDIT.md`.
 2. No API caching — CoinGecko live on every request (rate-limit risk).
 3. No tests — zero coverage; financial calcs must be tested before real money.
 4. No "last updated" timestamp on prices.
 5. `GET /transactions` unpaginated.
 
-Schema is Alembic-managed (no `create_all`) — a fresh deploy must run `alembic upgrade head`.
+Schema is Alembic-managed (no `create_all`) — a fresh deploy must run `alembic upgrade head`, and `app_user` must be provisioned once (`docs/runbooks/DEPLOY.md`).
 
 ## External services
-CoinGecko (free, 30 req/min), MFAPI (free), Google Gemini (free tier). Full table + hosting/roadmap in `docs/VISION.md`.
+CoinGecko (free, 30 req/min), MFAPI (free), Google Gemini (free tier), Supabase Auth. Full table + hosting/roadmap in `docs/product/VISION.md`.
