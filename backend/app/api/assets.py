@@ -7,7 +7,7 @@ from sqlalchemy import select, delete, and_
 from typing import Optional
 from app.api.deps import get_session
 from app.db.models import Asset, CryptoHolding, FixedIncomeHolding, MutualFundHolding, Transaction, ValuationHistory
-from app.services.fixed_income import compound_value
+from app.services.fixed_income import compound_value, rd_current_value
 from app.core.auth import get_current_user_id
 
 router = APIRouter()
@@ -351,10 +351,10 @@ async def create_asset(
         if payload.asset_type == "RD":
             months = _rd_months_elapsed(payload.start_date, today)
             fi_invested = payload.principal * Decimal(months)
+            fi_current = rd_current_value(payload.principal, payload.annual_rate, payload.start_date, today, freq)
         else:
             fi_invested = payload.principal
-
-        fi_current = compound_value(fi_invested, payload.annual_rate, payload.start_date, today, freq)
+            fi_current = compound_value(fi_invested, payload.annual_rate, payload.start_date, today, freq)
 
         asset = Asset(
             user_id=user_id,
