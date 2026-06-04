@@ -1,0 +1,5 @@
+# Dev/test-only dependencies — NOT installed into the production image.
+# Install: .venv/bin/pip install -r requirements-dev.txt
+pytest==9.0.3
+pytest-asyncio==1.4.0
+# A3b will add: testcontainers[postgresql], freezegun
