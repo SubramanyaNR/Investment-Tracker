@@ -3,12 +3,14 @@ from sqlalchemy.orm import Session as SyncSession
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from app.core.config import settings
 
+_connect_args = {"ssl": settings.db_ssl} if settings.db_ssl else {}
+
 # Request-path engine: connects as the non-superuser `app_user` role, which is
 # subject to Row-Level Security. Tenant scoping is enforced here as a backstop.
 engine = create_async_engine(
     settings.database_url,
     echo=False,
-    connect_args={"ssl": "require"},
+    connect_args=_connect_args,
 )
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
@@ -17,7 +19,7 @@ AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 admin_engine = create_async_engine(
     settings.admin_database_url,
     echo=False,
-    connect_args={"ssl": "require"},
+    connect_args=_connect_args,
 )
 AdminSessionLocal = async_sessionmaker(admin_engine, expire_on_commit=False)
 
