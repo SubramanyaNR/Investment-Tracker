@@ -66,9 +66,8 @@ controls can be enabled **if/when we move to Supabase Pro**. **No custom session
 introduced** (deliberate — it would duplicate auth state and add risk). This is the residual M4 gap.
 
 ## Still required before paying users (from SECURITY-AUDIT §8)
-- ~~**M2** rate limiting + cache `/market/*`~~ — **done (A5)**; per-IP becomes per-client once nginx
-  forwards the real client IP (the Next proxy sends no `X-Forwarded-For`). JWKS unknown-`kid` negative
-  cache still open. See ADR 0004.
+- ~~**M2** rate limiting + cache `/market/*` + JWKS unknown-`kid` negative cache~~ — **done (A5, A9)**;
+  per-IP becomes per-client once nginx forwards the real client IP (the Next proxy sends no `X-Forwarded-For`).
 - Email confirmation — enable now (A6 checklist above). Session time-boxing/inactivity timeout are a
   **Free-plan limitation** (accepted; Pro-only) — residual M4 gap, no custom code.
 - Automated offsite backups (`BACKUP-RESTORE.md`) — roadmap **A7**.

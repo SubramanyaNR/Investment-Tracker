@@ -120,7 +120,7 @@ None confirmed.
 | ID | Finding | Status |
 |---|---|---|
 | M1 | **No RLS / superuser DB role.** Any future missing `WHERE user_id` = full-tenant breach with no backstop. Add least-privileged role + RLS keyed on JWT `sub`. | FIXED (2026-06-03) — `app_user` role + RLS policies + per-request GUC; verified fail-closed & no cross-tenant leak. See §11. |
-| M2 | **No rate limiting + JWKS amplification (DoS).** Each unknown-`kid` token forces one outbound JWKS fetch (30s timeout, threadpool thread). Public uncached `/market/*` lets anon traffic burn upstream rate limits. | PARTIAL (2026-06-05, A5) — `/market/*` cached + per-user rate limits + per-IP (per-client once nginx forwards XFF in B1; the Next proxy sends none). Unknown-`kid` JWKS negative cache still **OPEN**. See ADR 0004. |
+| M2 | **No rate limiting + JWKS amplification (DoS).** Each unknown-`kid` token forces one outbound JWKS fetch (30s timeout, threadpool thread). Public uncached `/market/*` lets anon traffic burn upstream rate limits. | FIXED (2026-06-05, A5; 2026-06-05, A9) — `/market/*` cached + per-user rate limits + per-IP (per-client once nginx forwards XFF in B1; the Next proxy sends none). Unknown-`kid` JWKS negative cache added (A9): confirmed-bad kids cached for 60s, connection failures excluded. See ADR 0004. |
 | M3 | **OAuth `implicit` flow (token in URL).** supabase-js defaults to implicit → access/refresh tokens in URL fragment (history/referrer exposure). Set `flowType: 'pkce'`. | FIXED (2026-06-03) |
 | M4 | **No token revocation.** Stateless verify → deleted/banned user keeps access until `exp`. Mitigate with short token lifetime. | ACCEPTED-LIMITATION (Free plan) — session time-boxing + inactivity timeout are Supabase **Pro-only**; on Free we accept the default token lifetime (backend enforces `exp`, client auto-refreshes). No custom session-management code (deliberate). Revisit on Pro. See `DEPLOY.md` "Session controls (M4)". |
 
@@ -159,7 +159,7 @@ filter by owner.
 ## 8. Required before production
 
 1. **M1** — least-privileged DB role + Postgres RLS backstop. *(done — see §11)*
-2. **M2** — rate limiting (per-IP/per-user) + cache `/market/*`. *(done — A5; ADR 0004. Per-IP becomes per-client once nginx forwards the client IP. Short-circuit repeated unknown-`kid` tokens still open.)*
+2. **M2** — rate limiting (per-IP/per-user) + cache `/market/*` + JWKS unknown-`kid` negative cache. *(done — A5, A9; ADR 0004. Per-IP becomes per-client once nginx forwards the client IP.)*
 3. **M3** — PKCE flow. *(done)*
 4. Set real `NEXT_PUBLIC_SUPABASE_ANON_KEY` *(done)*; require email confirmation; correct Supabase Site/Redirect URLs at VPS. *(A6 — checklist in `DEPLOY.md` "Supabase production configuration"; email confirmation enabled now, Site/Redirect/CORS at cutover. Short session controls are Pro-only — accepted Free-plan limitation, see M4.)*
 

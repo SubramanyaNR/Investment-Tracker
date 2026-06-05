@@ -42,6 +42,10 @@ class Settings(BaseSettings):
     rl_user_recalculate: int = 10    # /valuations/recalculate (hits upstream)
     rl_user_insights: int = 6        # /insights/refresh (calls Gemini)
 
+    # ── A9: JWKS unknown-kid negative cache ─────────────────────────────────
+    jwks_negative_cache_ttl: int = 60        # seconds a confirmed-bad kid is remembered
+    jwks_negative_cache_maxsize: int = 1000  # cap memory; evict oldest on overflow
+
     class Config:
         env_file = ".env"
 
