@@ -1,7 +1,8 @@
 import uuid
 from datetime import date
 from decimal import Decimal
-from sqlalchemy import select, func, and_, delete
+from sqlalchemy import select, func, and_
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import ValuationHistory, PortfolioSnapshot
 
@@ -43,29 +44,34 @@ async def get_dashboard(session: AsyncSession, user_id: uuid.UUID) -> dict:
 
 
 async def create_or_update_snapshot(session: AsyncSession, user_id: uuid.UUID) -> PortfolioSnapshot:
-    """Upsert today's snapshot — safe to call multiple times per day."""
+    """Upsert today's snapshot — atomic under concurrent calls."""
     dashboard = await get_dashboard(session, user_id)
     today = date.today()
 
-    await session.execute(
-        delete(PortfolioSnapshot).where(
-            and_(
-                PortfolioSnapshot.user_id == user_id,
-                PortfolioSnapshot.snapshot_date == today,
-            )
+    stmt = (
+        pg_insert(PortfolioSnapshot)
+        .values(
+            id=uuid.uuid4(),
+            user_id=user_id,
+            snapshot_date=today,
+            total_invested=dashboard["total_invested"],
+            total_value=dashboard["total_value"],
+            total_pnl=dashboard["total_pnl"],
+            allocation={},
+            liquidity={},
+            metrics=dashboard,
         )
+        .on_conflict_do_update(
+            index_elements=["user_id", "snapshot_date"],
+            set_=dict(
+                total_invested=dashboard["total_invested"],
+                total_value=dashboard["total_value"],
+                total_pnl=dashboard["total_pnl"],
+                metrics=dashboard,
+            ),
+        )
+        .returning(PortfolioSnapshot)
     )
-    snapshot = PortfolioSnapshot(
-        user_id=user_id,
-        snapshot_date=today,
-        total_invested=dashboard["total_invested"],
-        total_value=dashboard["total_value"],
-        total_pnl=dashboard["total_pnl"],
-        allocation={},
-        liquidity={},
-        metrics=dashboard,
-    )
-    session.add(snapshot)
+    result = await session.scalars(stmt)
     await session.commit()
-    await session.refresh(snapshot)
-    return snapshot
+    return result.one()
