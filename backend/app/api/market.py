@@ -1,29 +1,31 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+
+from app.core.ratelimit import rate_limit_ip
 from app.integrations.coingecko import get_top_cryptos
-from app.integrations.mfapi import search_schemes, get_latest_nav
+from app.integrations.mfapi import get_latest_nav, search_schemes
 
 router = APIRouter(prefix="/market", tags=["market"])
 
 
-@router.get("/crypto/top")
+@router.get("/crypto/top", dependencies=[Depends(rate_limit_ip("rl_market_default"))])
 async def top_cryptos():
     try:
         return await get_top_cryptos()
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"CoinGecko error: {str(e)}")
+    except Exception:
+        raise HTTPException(status_code=502, detail="Upstream market data unavailable")
 
 
-@router.get("/mutual-funds/search")
+@router.get("/mutual-funds/search", dependencies=[Depends(rate_limit_ip("rl_market_search"))])
 async def search_mutual_funds(q: str = Query(..., min_length=3)):
     try:
         return await search_schemes(q)
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"MFAPI error: {str(e)}")
+    except Exception:
+        raise HTTPException(status_code=502, detail="Upstream market data unavailable")
 
 
-@router.get("/mutual-funds/{scheme_code}/nav")
+@router.get("/mutual-funds/{scheme_code}/nav", dependencies=[Depends(rate_limit_ip("rl_market_default"))])
 async def get_mf_nav(scheme_code: str):
     try:
         return await get_latest_nav(scheme_code)
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"MFAPI error: {str(e)}")
+    except Exception:
+        raise HTTPException(status_code=502, detail="Upstream market data unavailable")

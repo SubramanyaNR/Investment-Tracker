@@ -26,6 +26,22 @@ class Settings(BaseSettings):
     # for a local non-TLS Postgres (e.g. the integration-test container).
     db_ssl: str | None = "require"
 
+    # ── A5: market caching + rate limiting ──────────────────────────────────
+    rate_limit_enabled: bool = True
+    # Backend binds 127.0.0.1 (reachable only via the proxy), so a proxy-set
+    # X-Forwarded-For is trustworthy for client identification.
+    trust_forwarded_for: bool = True
+    # Cache TTLs (seconds): crypto moves fast; MF NAV is daily; scheme list ~static.
+    cache_ttl_crypto: int = 60
+    cache_ttl_nav: int = 300
+    cache_ttl_search: int = 3600
+    # Rate limits (requests per 60s).
+    rl_market_default: int = 60      # /market/crypto/top, /nav (per IP)
+    rl_market_search: int = 30       # /market/.../search (per IP)
+    rl_user_general: int = 120       # all authenticated routes (per user)
+    rl_user_recalculate: int = 10    # /valuations/recalculate (hits upstream)
+    rl_user_insights: int = 6        # /insights/refresh (calls Gemini)
+
     class Config:
         env_file = ".env"
 
