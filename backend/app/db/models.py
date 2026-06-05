@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import String, Numeric, Date, DateTime, ForeignKey, JSON, UniqueConstraint, func
+from sqlalchemy import String, Numeric, Date, DateTime, ForeignKey, ForeignKeyConstraint, JSON, UniqueConstraint, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import UUID
 
@@ -10,6 +10,11 @@ class Base(DeclarativeBase):
 
 class Asset(Base):
     __tablename__ = "assets"
+    # Target for the child tables' composite (asset_id, user_id) FK — guarantees a
+    # child row's tenant matches its asset. Created by migration 509c02fff358.
+    __table_args__ = (
+        UniqueConstraint("id", "user_id", name="uq_assets_id_user"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
@@ -22,6 +27,12 @@ class Asset(Base):
 
 class Transaction(Base):
     __tablename__ = "transactions"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["asset_id", "user_id"], ["assets.id", "assets.user_id"],
+            name="fk_transactions_asset_user", ondelete="CASCADE",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
@@ -35,6 +46,12 @@ class Transaction(Base):
 
 class ValuationHistory(Base):
     __tablename__ = "valuation_history"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["asset_id", "user_id"], ["assets.id", "assets.user_id"],
+            name="fk_valuation_history_asset_user", ondelete="CASCADE",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
@@ -75,6 +92,12 @@ class AIInsight(Base):
 
 class CryptoHolding(Base):
     __tablename__ = "crypto_holdings"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["asset_id", "user_id"], ["assets.id", "assets.user_id"],
+            name="fk_crypto_holdings_asset_user", ondelete="CASCADE",
+        ),
+    )
 
     asset_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("assets.id", ondelete="CASCADE"),
@@ -89,6 +112,12 @@ class CryptoHolding(Base):
 
 class FixedIncomeHolding(Base):
     __tablename__ = "fixed_income_holdings"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["asset_id", "user_id"], ["assets.id", "assets.user_id"],
+            name="fk_fixed_income_holdings_asset_user", ondelete="CASCADE",
+        ),
+    )
 
     asset_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("assets.id", ondelete="CASCADE"),
@@ -104,6 +133,12 @@ class FixedIncomeHolding(Base):
 
 class MutualFundHolding(Base):
     __tablename__ = "mutual_fund_holdings"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["asset_id", "user_id"], ["assets.id", "assets.user_id"],
+            name="fk_mutual_fund_holdings_asset_user", ondelete="CASCADE",
+        ),
+    )
 
     asset_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("assets.id", ondelete="CASCADE"),
