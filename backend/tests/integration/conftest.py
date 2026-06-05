@@ -123,7 +123,7 @@ async def api(app_engine, monkeypatch):
 
     state = {"user": None}
     app.dependency_overrides[get_current_user_id] = lambda: state["user"]
-    transport = ASGITransport(app=app)
+    transport = ASGITransport(app=app, raise_app_exceptions=False)  # return 500s like a real client
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         def as_user(user_id):
             state["user"] = user_id
@@ -137,5 +137,6 @@ async def api(app_engine, monkeypatch):
 async def anon_client():
     """Client with no identity override — exercises the real auth gate (401 path)."""
     from app.main import app
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+    transport = ASGITransport(app=app, raise_app_exceptions=False)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
