@@ -120,7 +120,7 @@ None confirmed.
 | ID | Finding | Status |
 |---|---|---|
 | M1 | **No RLS / superuser DB role.** Any future missing `WHERE user_id` = full-tenant breach with no backstop. Add least-privileged role + RLS keyed on JWT `sub`. | FIXED (2026-06-03) — `app_user` role + RLS policies + per-request GUC; verified fail-closed & no cross-tenant leak. See §11. |
-| M2 | **No rate limiting + JWKS amplification (DoS).** Each unknown-`kid` token forces one outbound JWKS fetch (30s timeout, threadpool thread). Public uncached `/market/*` lets anon traffic burn upstream rate limits. | OPEN |
+| M2 | **No rate limiting + JWKS amplification (DoS).** Each unknown-`kid` token forces one outbound JWKS fetch (30s timeout, threadpool thread). Public uncached `/market/*` lets anon traffic burn upstream rate limits. | PARTIAL (2026-06-05, A5) — `/market/*` cached + per-user rate limits + per-IP (per-client once nginx forwards XFF in B1; the Next proxy sends none). Unknown-`kid` JWKS negative cache still **OPEN**. See ADR 0004. |
 | M3 | **OAuth `implicit` flow (token in URL).** supabase-js defaults to implicit → access/refresh tokens in URL fragment (history/referrer exposure). Set `flowType: 'pkce'`. | FIXED (2026-06-03) |
 | M4 | **No token revocation.** Stateless verify → deleted/banned user keeps access until `exp`. Mitigate with short token lifetime. | NEEDS-OPS |
 
