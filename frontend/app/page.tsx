@@ -6,13 +6,14 @@ import {
   getSnapshots, getTransactions, getMfCurrentNav, recalculateValuations, redeemMutualFund,
   sellCrypto, topUpSavings,
   type Asset, type CryptoMarket, type MutualFundScheme,
-  type Snapshot, type TxRecord, type Valuation,
+  type Snapshot, type TxPage, type TxRecord, type Valuation,
 } from "@/lib/api";
 import CryptoSelector    from "@/components/CryptoSelector";
 import MutualFundSelector from "@/components/MutualFundSelector";
 import NetWorthChart     from "@/components/NetWorthChart";
 import AllocationCharts  from "@/components/AllocationCharts";
 import ThemeSwitcher     from "@/components/ThemeSwitcher";
+import { useAuth }       from "@/components/AuthProvider";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -51,12 +52,15 @@ function fmtQty(n: number) {
 
 export default function DashboardPage() {
 
+  const { signOut } = useAuth();
+
   // ── Data ──
   const [dashboard,    setDashboard]    = useState<Dashboard>({ total_value: 0, total_invested: 0, total_pnl: 0 });
   const [assets,       setAssets]       = useState<Asset[]>([]);
   const [valuations,   setValuations]   = useState<Record<string, Valuation>>({});
   const [snapshots,    setSnapshots]    = useState<Snapshot[]>([]);
   const [transactions, setTransactions] = useState<TxRecord[]>([]);
+  const [txTotal,      setTxTotal]      = useState(0);
 
   // ── UI state ──
   const [tab, setTab] = useState<Tab>("overview");
@@ -108,7 +112,8 @@ export default function DashboardPage() {
     v.forEach((val) => { vMap[val.asset_id] = val; });
     setValuations(vMap);
     setSnapshots(s);
-    setTransactions(tx);
+    setTransactions(tx.items);
+    setTxTotal(tx.total);
   }
 
   useEffect(() => {
@@ -325,6 +330,9 @@ export default function DashboardPage() {
               {refreshing ? "Refreshing…" : "Refresh"}
             </button>
             <ThemeSwitcher />
+            <button type="button" onClick={signOut} className="btn-refresh" aria-label="Sign out">
+              Sign out
+            </button>
           </div>
 
         </div>
@@ -363,7 +371,7 @@ export default function DashboardPage() {
               <button key={t} type="button" role="tab" aria-selected={tab === t}
                 className={`tab-btn ${tab === t ? "active" : ""}`}
                 onClick={() => setTab(t)}>
-                {t === "overview" ? "Overview" : t === "holdings" ? `Holdings${assets.length > 0 ? ` · ${assets.length}` : ""}` : `Transactions${transactions.length > 0 ? ` · ${transactions.length}` : ""}`}
+                {t === "overview" ? "Overview" : t === "holdings" ? `Holdings${assets.length > 0 ? ` · ${assets.length}` : ""}` : `Transactions${txTotal > 0 ? ` · ${txTotal}` : ""}`}
               </button>
             ))}
           </nav>
@@ -749,7 +757,7 @@ export default function DashboardPage() {
                       <h2 className="section-title">Transaction History</h2>
                       <p className="section-sub">All recorded portfolio activity</p>
                     </div>
-                    <span className="type-badge type-badge--violet">{transactions.length} records</span>
+                    <span className="type-badge type-badge--violet">{txTotal} records</span>
                   </div>
 
                   <div className="overflow-x-auto">
@@ -762,14 +770,14 @@ export default function DashboardPage() {
                       }}>
                       <span>Date</span><span>Asset</span><span>Type</span><span>Units</span><span>Price/Unit</span><span>Amount</span>
                     </div>
-                    {transactions.slice(0, 50).map((tx, idx) => {
+                    {transactions.map((tx, idx) => {
                       const assetCfg = TYPE_CFG[tx.asset_type] ?? TYPE_CFG.MUTUAL_FUND;
                       return (
                         <div key={tx.id}
                           className="holdings-row grid min-w-[560px] items-center px-5 py-2.5 text-xs"
                           style={{
                             gridTemplateColumns: "100px 1fr 80px 90px 110px 110px",
-                            borderBottom: idx < Math.min(transactions.length, 50) - 1 ? "1px solid var(--border-subtle)" : "none",
+                            borderBottom: idx < transactions.length - 1 ? "1px solid var(--border-subtle)" : "none",
                           }}>
                           <span className="font-mono text-[10px]" style={{ color: "var(--text-muted)" }}>{tx.transaction_date}</span>
                           <div className="flex min-w-0 items-center gap-2">
