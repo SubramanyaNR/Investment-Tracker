@@ -27,7 +27,8 @@ async def test_dashboard_totals_scoped_to_owner(api, seed):
 
 
 async def test_transactions_scoped_to_owner(api, seed):
-    a = (await api.as_user(seed["A"]["user"]).get("/transactions")).json()
+    resp = (await api.as_user(seed["A"]["user"]).get("/transactions")).json()
+    a = resp["items"]
     assert a and all(t["asset_id"] == str(seed["A"]["asset"]) for t in a)
     assert str(seed["B"]["asset"]) not in {t["asset_id"] for t in a}
 

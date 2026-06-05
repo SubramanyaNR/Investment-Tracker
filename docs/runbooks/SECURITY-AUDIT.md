@@ -132,10 +132,10 @@ None confirmed.
 | L3 | `CORS_ORIGINS` not the real VM origin (moot due to same-origin proxy). | OPEN (revisit at VPS domain) |
 | L4 | `ai_insights` / `portfolio_snapshots` don't cascade from `assets`; no account-deletion path → orphaned per-user rows. | FIXED (2026-06-03) — `DELETE /account` purges all caller rows (auth-user deletion still needs admin API). |
 | L5 | Auth error responses echoed library detail. | FIXED (2026-06-03) |
-| L6 | Snapshot upsert and asset merge not atomic; concurrent requests can race the unique constraint. | OPEN |
+| L6 | Snapshot upsert and asset merge not atomic; concurrent requests can race the unique constraint. | FIXED (2026-06-05, A10a + A10b) — snapshot upsert converted to `ON CONFLICT DO UPDATE`; asset merge protected by unique constraints + `IntegrityError` retry. |
 
 ### Pre-existing (not introduced by this work, relevant to go-live)
-No backups; no automated tests in repo; unpaginated `GET /transactions`.
+No automated offsite backups (manual `make backup` only; A7 deferred to VPS). Tests added (A3a/A3b, 94 passing). `GET /transactions` paginated (A11).
 
 ---
 
@@ -170,7 +170,7 @@ filter by owner.
 8. Account-deletion path *(done, L4)*; fix CORS origin at VPS (**L3**).
 
 ## 10. Nice-to-have
-9. Generic error messages *(done, L5)*; atomic upserts via `ON CONFLICT` (**L6**); structured auth logging/alerting.
+9. Generic error messages *(done, L5)*; atomic upserts via `ON CONFLICT` *(done — A10a, A10b)*; structured auth logging/alerting *(done — A8)*.
 
 ## 11. RLS deploy/ops notes
 
