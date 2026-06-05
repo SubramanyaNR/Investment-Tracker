@@ -1,11 +1,16 @@
-from fastapi import Depends, FastAPI
+import time
+import uuid
+
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from app.api.dashboard import router as dashboard_router
 from app.api.assets import router as assets_router
 from app.api.insights import router as insights_router
 
 from app.core.config import settings
-from app.core.ratelimit import rate_limit_user  # imports observability -> configures logger
+from app.core.observability import log_event, redact
+from app.core.ratelimit import rate_limit_user
 from app.jobs.scheduler import start_scheduler
 
 from app.api.valuations import router as valuations_router
@@ -24,6 +29,31 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def access_log(request: Request, call_next):
+    req_id = uuid.uuid4().hex[:8]
+    request.state.req_id = req_id
+    start = time.monotonic()
+    response = await call_next(request)
+    dur_ms = int((time.monotonic() - start) * 1000)
+    response.headers["X-Request-Id"] = req_id
+    log_event(
+        "request", req_id=req_id, method=request.method, path=request.url.path,
+        status=response.status_code, dur_ms=dur_ms,
+        user=getattr(request.state, "user_id", "anon"),  # stamped by get_session on authed routes
+    )
+    return response
+
+
+@app.exception_handler(Exception)
+async def log_unhandled(request: Request, exc: Exception):
+    log_event(
+        "error", req_id=getattr(request.state, "req_id", "-"), path=request.url.path,
+        type=type(exc).__name__, msg=redact(str(exc)),
+    )
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 
 @app.on_event("startup")
