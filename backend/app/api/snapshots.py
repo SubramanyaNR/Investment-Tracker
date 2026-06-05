@@ -1,20 +1,22 @@
+import uuid
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
-from app.db.session import AsyncSessionLocal
+from app.api.deps import get_session
 from app.db.models import PortfolioSnapshot
+from app.core.auth import get_current_user_id
 
 router = APIRouter()
 
 
-async def get_session():
-    async with AsyncSessionLocal() as session:
-        yield session
-
-
 @router.get("/snapshots")
-async def list_snapshots(session=Depends(get_session)):
+async def list_snapshots(
+    session=Depends(get_session),
+    user_id: uuid.UUID = Depends(get_current_user_id),
+):
     result = await session.execute(
-        select(PortfolioSnapshot).order_by(PortfolioSnapshot.snapshot_date.asc())
+        select(PortfolioSnapshot)
+        .where(PortfolioSnapshot.user_id == user_id)
+        .order_by(PortfolioSnapshot.snapshot_date.asc())
     )
     snapshots = result.scalars().all()
     return [

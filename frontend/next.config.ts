@@ -2,7 +2,9 @@ import type { NextConfig } from "next";
 import path from "path";
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  // `output: "standalone"` was incompatible with `next start` (how `make frontend`
+  // runs it). Re-add it with a `node .next/standalone/server.js` runner when
+  // containerising for the VPS.
   turbopack: {
     root: path.resolve(__dirname),
   },

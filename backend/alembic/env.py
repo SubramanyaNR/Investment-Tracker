@@ -15,8 +15,8 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Override the URL from alembic.ini with the one from our .env file
-config.set_main_option("sqlalchemy.url", settings.database_url)
+# Migrations run as the admin role (app_user lacks DDL/ownership privileges).
+config.set_main_option("sqlalchemy.url", settings.admin_database_url)
 
 # This is what autogenerate compares against the live DB
 target_metadata = Base.metadata
@@ -45,7 +45,7 @@ async def run_migrations_online() -> None:
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
-        connect_args={"ssl": "require"},
+        connect_args={"ssl": settings.db_ssl} if settings.db_ssl else {},
     )
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)

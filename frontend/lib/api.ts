@@ -1,5 +1,14 @@
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+import { supabase } from "./supabase";
+
+// Same-origin proxy: next.config.ts rewrites /api/* to the backend server-side.
+// Never default to localhost:8000 or a baked host IP — see CLAUDE.md "How the app is accessed".
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api";
+
+async function authHeaders(): Promise<Record<string, string>> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -80,10 +89,20 @@ export type TxRecord = {
   price_per_unit: number | null;
 };
 
+export type TxPage = {
+  items: TxRecord[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE_URL}${path}`, { cache: "no-store" });
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    cache: "no-store",
+    headers: await authHeaders(),
+  });
   if (!res.ok) throw new Error(`GET ${path} failed: ${res.status}`);
   return res.json();
 }
@@ -91,7 +110,10 @@ async function get<T>(path: string): Promise<T> {
 async function post<T>(path: string, body?: unknown): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method: "POST",
-    headers: body ? { "Content-Type": "application/json" } : undefined,
+    headers: {
+      ...(body ? { "Content-Type": "application/json" } : {}),
+      ...(await authHeaders()),
+    },
     body: body ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) {
@@ -107,7 +129,7 @@ export const getDashboard = () => get<Record<string, number>>("/dashboard");
 export const getAssets = () => get<Asset[]>("/assets");
 export const getLatestValuations = () => get<Valuation[]>("/valuations/latest");
 export const getSnapshots = () => get<Snapshot[]>("/snapshots");
-export const getTransactions = () => get<TxRecord[]>("/transactions");
+export const getTransactions = () => get<TxPage>("/transactions");
 export const getTopCryptos = () => get<CryptoMarket[]>("/market/crypto/top");
 export const recalculateValuations = () => post<unknown>("/valuations/recalculate");
 
@@ -143,7 +165,10 @@ export async function createAsset(payload: {
 }
 
 export async function deleteAsset(assetId: string) {
-  const res = await fetch(`${API_BASE_URL}/assets/${assetId}`, { method: "DELETE" });
+  const res = await fetch(`${API_BASE_URL}/assets/${assetId}`, {
+    method: "DELETE",
+    headers: await authHeaders(),
+  });
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`DELETE /assets/${assetId} failed: ${res.status} ${text}`);

@@ -17,3 +17,6 @@ alembic/versions/__pycache__/
 
 # Backups
 backups/
+
+# Claude operating-model runtime state (approval markers)
+.claude/state/
