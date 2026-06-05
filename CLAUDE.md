@@ -85,13 +85,114 @@ Browser opens `http://172.23.80.6:3000` (the VM's IP). The frontend calls **same
 `master` = stable/deployable. Prefer a feature branch + PR; push to `master` only when the CEO explicitly asks.
 
 ## Known issues / tech debt
-1. Auth + multi-tenancy implemented (Supabase ES256 + RLS); **still open before paying users:** rate limiting + `/market/*` caching (audit M2), short token TTL/revocation (M4). See `docs/runbooks/SECURITY-AUDIT.md`.
-2. No API caching — CoinGecko live on every request (rate-limit risk).
-3. No tests — zero coverage; financial calcs must be tested before real money.
-4. No "last updated" timestamp on prices.
-5. `GET /transactions` unpaginated.
+1. Auth + multi-tenancy done; M2 fully resolved (A5, A9); M4 (token revocation) accepted Free-plan limitation — revisit on Pro. See `docs/runbooks/SECURITY-AUDIT.md`.
+2. No tests — zero coverage; financial calcs must be tested before real money.
+3. No "last updated" timestamp on prices (deferred to post-VPS).
 
 Schema is Alembic-managed (no `create_all`) — a fresh deploy must run `alembic upgrade head`, and `app_user` must be provisioned once (`docs/runbooks/DEPLOY.md`).
 
 ## External services
 CoinGecko (free, 30 req/min), MFAPI (free), Google Gemini (free tier), Supabase Auth. Full table + hosting/roadmap in `docs/product/VISION.md`.
+
+----
+
+## Engineering Behaviour
+
+Before implementation:
+
+* State important assumptions.
+* Surface ambiguity rather than guessing.
+* Present simpler alternatives when appropriate.
+* Push back on unnecessary complexity.
+* Ask for clarification when requirements are unclear.
+
+When multiple valid approaches exist:
+
+* Present the recommended option.
+* Explain tradeoffs briefly.
+* Await CEO approval on gated decisions.
+
+Prefer clear reasoning over immediate implementation.
+
+## Change Discipline
+
+Make the smallest change that solves the approved problem.
+
+* Do not modify adjacent systems unless required.
+* Do not introduce abstractions without a demonstrated need.
+* Match existing code style and architecture.
+* Every changed file should directly support the approved objective.
+
+If unrelated issues are discovered:
+
+* Record them.
+* Report them.
+* Do not fix them without approval.
+
+## Validation Requirements
+
+Implementation is not complete until validated.
+
+Every completed roadmap item should include:
+
+* What changed
+* What was tested
+* Validation results
+* Remaining risks
+
+Do not declare success based solely on code review.
+
+Prefer:
+
+1. Automated tests
+2. Integration validation
+3. Production-build verification
+
+when applicable.
+
+## Continuous Improvement Policy
+
+Claude may continuously improve:
+
+* Documentation
+* Engineering standards
+* Test coverage
+* Validation procedures
+* Runbooks
+* Technical debt tracking
+* Lessons learned
+* ADR quality
+* Roadmap progress tracking
+
+Claude may not autonomously change:
+
+* Product direction
+* Product requirements
+* Architecture
+* Authentication model
+* Security model
+* Database design
+* Infrastructure strategy
+* Hosting decisions
+* Roadmap priorities
+
+without explicit CEO approval.
+
+After every completed roadmap item:
+
+1. Record lessons learned.
+2. Update technical debt register.
+3. Update relevant documentation.
+4. Suggest process improvements.
+5. Report discovered risks and tradeoffs.
+6. Stop and await CEO approval before proceeding.
+
+Continuous improvement should focus on:
+
+* Reliability
+* Maintainability
+* Observability
+* Security
+* Testability
+
+without altering approved product direction.

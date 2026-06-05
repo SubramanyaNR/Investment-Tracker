@@ -89,6 +89,13 @@ export type TxRecord = {
   price_per_unit: number | null;
 };
 
+export type TxPage = {
+  items: TxRecord[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 async function get<T>(path: string): Promise<T> {
@@ -122,7 +129,7 @@ export const getDashboard = () => get<Record<string, number>>("/dashboard");
 export const getAssets = () => get<Asset[]>("/assets");
 export const getLatestValuations = () => get<Valuation[]>("/valuations/latest");
 export const getSnapshots = () => get<Snapshot[]>("/snapshots");
-export const getTransactions = () => get<TxRecord[]>("/transactions");
+export const getTransactions = () => get<TxPage>("/transactions");
 export const getTopCryptos = () => get<CryptoMarket[]>("/market/crypto/top");
 export const recalculateValuations = () => post<unknown>("/valuations/recalculate");
 
