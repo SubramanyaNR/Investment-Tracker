@@ -97,6 +97,7 @@ class CryptoHolding(Base):
             ["asset_id", "user_id"], ["assets.id", "assets.user_id"],
             name="fk_crypto_holdings_asset_user", ondelete="CASCADE",
         ),
+        UniqueConstraint("user_id", "coingecko_id", name="uq_crypto_holdings_user_coingecko"),
     )
 
     asset_id: Mapped[uuid.UUID] = mapped_column(
@@ -138,6 +139,7 @@ class MutualFundHolding(Base):
             ["asset_id", "user_id"], ["assets.id", "assets.user_id"],
             name="fk_mutual_fund_holdings_asset_user", ondelete="CASCADE",
         ),
+        UniqueConstraint("user_id", "scheme_code", name="uq_mf_holdings_user_scheme"),
     )
 
     asset_id: Mapped[uuid.UUID] = mapped_column(
