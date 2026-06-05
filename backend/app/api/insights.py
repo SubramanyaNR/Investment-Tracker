@@ -6,11 +6,15 @@ from app.services.portfolio import get_dashboard
 from app.services.insights import generate_ai_insights
 from app.db.models import AIInsight
 from app.core.auth import get_current_user_id
+from app.core.ratelimit import rate_limit_user
 
 router = APIRouter()
 
 
-@router.post("/insights/refresh")
+@router.post(
+    "/insights/refresh",
+    dependencies=[Depends(rate_limit_user("rl_user_insights", "insights"))],
+)
 async def refresh_insights(
     session=Depends(get_session),
     user_id: uuid.UUID = Depends(get_current_user_id),
