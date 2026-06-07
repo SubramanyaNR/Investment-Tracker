@@ -30,7 +30,7 @@ USER_B = uuid.UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
 # Truncate order is irrelevant with CASCADE; assets last for readability.
 _TABLES = (
     "transactions", "valuation_history", "crypto_holdings", "fixed_income_holdings",
-    "mutual_fund_holdings", "portfolio_snapshots", "ai_insights", "assets",
+    "mutual_fund_holdings", "manual_holdings", "portfolio_snapshots", "ai_insights", "assets",
 )
 
 
