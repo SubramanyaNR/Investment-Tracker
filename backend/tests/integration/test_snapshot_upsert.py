@@ -114,3 +114,21 @@ async def test_concurrent_recalculate_no_integrity_error(api, recalc_seed, admin
     async with admin_engine.connect() as conn:
         count = await _snapshot_count(conn, user)
     assert count == 1, f"expected 1 snapshot row, found {count}"
+
+
+async def test_snapshot_total_invested_persisted(api, recalc_seed, admin_engine):
+    """S1-A — Snapshot includes total_invested field; matches sum of valuations."""
+    user = recalc_seed["user"]
+    expected_invested = recalc_seed["invested"]
+
+    resp = await api.as_user(user).post("/valuations/recalculate")
+    assert resp.status_code == 200, resp.text
+
+    async with admin_engine.connect() as conn:
+        row = await conn.execute(
+            sa.text("SELECT total_invested, total_value FROM portfolio_snapshots WHERE user_id = :uid"),
+            {"uid": str(user)},
+        )
+        snapshot = row.one()
+    assert snapshot[0] == expected_invested, f"total_invested: expected {expected_invested}, got {snapshot[0]}"
+    assert snapshot[1] == 6000.0, f"total_value: expected 6000.0, got {snapshot[1]}"
