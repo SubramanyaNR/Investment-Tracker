@@ -96,6 +96,11 @@ export type TxPage = {
   offset: number;
 };
 
+export type MarketFreshness = {
+  crypto_updated_at: number | null;  // Unix epoch seconds, null if no fetch yet
+  mf_updated_at: number | null;
+};
+
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 async function get<T>(path: string): Promise<T> {
@@ -131,6 +136,7 @@ export const getLatestValuations = () => get<Valuation[]>("/valuations/latest");
 export const getSnapshots = () => get<Snapshot[]>("/snapshots");
 export const getTransactions = () => get<TxPage>("/transactions");
 export const getTopCryptos = () => get<CryptoMarket[]>("/market/crypto/top");
+export const getMarketFreshness = () => get<MarketFreshness>("/market/freshness");
 export const recalculateValuations = () => post<unknown>("/valuations/recalculate");
 
 export const searchMutualFunds = (q: string) =>
