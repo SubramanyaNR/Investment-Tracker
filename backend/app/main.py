@@ -18,6 +18,7 @@ from app.api.market import router as market_router
 from app.api.snapshots import router as snapshots_router
 from app.api.transactions import router as transactions_router
 from app.api.account import router as account_router
+from app.api.importer import router as importer_router
 
 app = FastAPI(title="Investment Observability API")
 
@@ -81,5 +82,6 @@ app.include_router(market_router)
 app.include_router(snapshots_router, dependencies=_per_user)
 app.include_router(transactions_router, dependencies=_per_user)
 app.include_router(account_router, dependencies=_per_user)
+app.include_router(importer_router, dependencies=_per_user)
 
 
