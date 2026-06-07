@@ -149,7 +149,10 @@ export default function AllocationCharts({
 
   if (typeTotal === 0 && liquidityTotal === 0) return null;
 
+  const hasManualAssets = assets.some((a) => a.asset_type === "MANUAL");
+
   return (
+    <div>
     <section
       className="grid grid-cols-1 gap-5 sm:grid-cols-2"
     >
@@ -179,5 +182,11 @@ export default function AllocationCharts({
         <DonutChart data={liquidityData} title="by value" total={liquidityTotal} />
       </div>
     </section>
+    {hasManualAssets && (
+      <p className="mt-2 text-right text-[10px]" style={{ color: "var(--text-muted)" }}>
+        Asset allocation excludes manually tracked assets.
+      </p>
+    )}
+    </div>
   );
 }

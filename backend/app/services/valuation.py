@@ -166,3 +166,9 @@ async def recalculate_mf_valuations(session: AsyncSession, user_id: uuid.UUID) -
 
     await session.commit()
     return output
+
+
+async def recalculate_manual_valuations(session: AsyncSession, user_id: uuid.UUID) -> list[dict]:
+    # Manual assets are user-valued; recalculate is a no-op.
+    # valuation_history rows are written at creation and on explicit user update only.
+    return []

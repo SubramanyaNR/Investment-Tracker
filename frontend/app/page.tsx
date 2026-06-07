@@ -29,6 +29,7 @@ const TYPE_CFG: Record<string, { dot: string; badge: string; rowAccent: string }
   RD:          { dot: "bg-sky-400",     badge: "type-badge type-badge--sky",      rowAccent: "rgba(56,189,248,0.03)"  },
   PPF:         { dot: "bg-emerald-400", badge: "type-badge type-badge--emerald",  rowAccent: "rgba(52,211,153,0.03)"  },
   SAVINGS_ACC: { dot: "bg-emerald-400", badge: "type-badge type-badge--emerald",  rowAccent: "rgba(52,211,153,0.03)"  },
+  MANUAL:      { dot: "bg-slate-400",   badge: "type-badge type-badge--slate",    rowAccent: "rgba(148,163,184,0.03)" },
 };
 
 const TX_CLASS: Record<string, string> = {
@@ -104,6 +105,11 @@ export default function DashboardPage() {
   const [mfNavLoading,  setMfNavLoading]  = useState(false);
   const [mfSip,         setMfSip]         = useState("");
 
+  // ── Form — Manual ──
+  const [manualCostBasis,    setManualCostBasis]    = useState("");
+  const [manualCurrentValue, setManualCurrentValue] = useState("");
+  const [manualNotes,        setManualNotes]        = useState("");
+
   // ── Action inputs ──
   const [sellQuantities, setSellQuantities] = useState<Record<string, string>>({});
   const [redeemUnits,    setRedeemUnits]    = useState<Record<string, string>>({});
@@ -150,6 +156,7 @@ export default function DashboardPage() {
     setStartDate(""); setMaturityDate(""); setCompFrequency("YEARLY");
     setSelectedFund(null); setMfAmount(""); setMfNav(""); setMfNavDate(""); setMfSip("");
     setRdTotalInvested("");
+    setManualCostBasis(""); setManualCurrentValue(""); setManualNotes("");
   }
 
   function handleCryptoSelect(coin: CryptoMarket) {
@@ -189,6 +196,9 @@ export default function DashboardPage() {
     if (assetType === "MUTUAL_FUND" && (!selectedFund || !mfAmount || !mfNav)) {
       setError("Select a fund, enter total amount invested and NAV."); return;
     }
+    if (assetType === "MANUAL" && (!manualCostBasis || !manualCurrentValue)) {
+      setError("Enter what you paid and your current estimate."); return;
+    }
     try {
       setLoading(true); setError("");
       await createAsset({
@@ -209,6 +219,11 @@ export default function DashboardPage() {
           scheme_code: selectedFund.scheme_code,
           amount_invested: Number(mfAmount), nav_at_purchase: Number(mfNav),
           monthly_sip: mfSip ? Number(mfSip) : undefined,
+        } : {}),
+        ...(assetType === "MANUAL" ? {
+          cost_basis: Number(manualCostBasis),
+          current_value: Number(manualCurrentValue),
+          notes: manualNotes || undefined,
         } : {}),
       });
       resetForm();
@@ -529,7 +544,19 @@ export default function DashboardPage() {
                                     )}
                                   </p>
                                 )}
-                                {!asset.holding && !asset.fi_holding && !asset.mf_holding && (
+                                {asset.manual_holding && (
+                                  <p className="mt-0.5 text-[10px]" style={{ color: "var(--text-secondary)" }}>
+                                    <span className="font-semibold text-slate-400">{inr(asset.manual_holding.current_value)}</span>
+                                    <span className="mx-1.5" style={{ color: "var(--text-muted)" }}>·</span>
+                                    <span>Paid {inr(asset.manual_holding.cost_basis)}</span>
+                                    <span className="mx-1.5" style={{ color: "var(--text-muted)" }}>·</span>
+                                    <span title={`Value set by you on ${new Date(asset.manual_holding.value_updated_at).toLocaleDateString("en-IN")}`}
+                                      style={{ color: "var(--text-muted)" }}>
+                                      manually tracked
+                                    </span>
+                                  </p>
+                                )}
+                                {!asset.holding && !asset.fi_holding && !asset.mf_holding && !asset.manual_holding && (
                                   <p className="text-[10px] capitalize" style={{ color: "var(--text-muted)" }}>
                                     {asset.category} ·{" "}
                                     <span className={asset.liquidity_tier === "LIQUID" ? "text-emerald-400" : "text-orange-400"}>
@@ -648,6 +675,7 @@ export default function DashboardPage() {
                         <option value="RD">Recurring Deposit (RD)</option>
                         <option value="PPF">PPF</option>
                         <option value="SAVINGS_ACC">Savings Account</option>
+                        <option value="MANUAL">Manual (Real Estate, Gold, Other)</option>
                       </select>
                     </Field>
 
@@ -708,6 +736,31 @@ export default function DashboardPage() {
                             <p className="mt-0.5 text-[9px]" style={{ color: "var(--text-muted)" }}>Scheme Code: {selectedFund.scheme_code}</p>
                           </div>
                         )}
+                      </>
+                    )}
+
+                    {assetType === "MANUAL" && (
+                      <>
+                        <div className="grid grid-cols-2 gap-3">
+                          <Field label="What you paid (₹)">
+                            <input value={manualCostBasis} onChange={(e) => setManualCostBasis(e.target.value)}
+                              placeholder="500000" inputMode="decimal" className="field-input"/>
+                          </Field>
+                          <Field label="Estimated value today (₹)">
+                            <input value={manualCurrentValue} onChange={(e) => setManualCurrentValue(e.target.value)}
+                              placeholder="650000" inputMode="decimal" className="field-input"/>
+                          </Field>
+                        </div>
+                        <Field label="Notes (optional)">
+                          <input value={manualNotes} onChange={(e) => setManualNotes(e.target.value)}
+                            placeholder="e.g. Plot in Whitefield, purchased 2022" className="field-input" maxLength={500}/>
+                        </Field>
+                        <div className="rounded-lg px-3 py-2"
+                          style={{ background: "rgba(148,163,184,0.07)", border: "1px solid rgba(148,163,184,0.18)" }}>
+                          <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                            Manually tracked · no live price feed · update estimated value whenever you wish
+                          </p>
+                        </div>
                       </>
                     )}
 

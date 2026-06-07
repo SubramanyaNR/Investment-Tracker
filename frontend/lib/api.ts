@@ -35,6 +35,13 @@ export type MutualFundHoldingDetail = {
   monthly_sip: number | null;
 };
 
+export type ManualHoldingDetail = {
+  cost_basis: number;
+  current_value: number;
+  notes: string | null;
+  value_updated_at: string;
+};
+
 export type Asset = {
   id: string;
   name: string;
@@ -45,6 +52,7 @@ export type Asset = {
   holding?: CryptoHoldingDetail;
   fi_holding?: FixedIncomeHoldingDetail;
   mf_holding?: MutualFundHoldingDetail;
+  manual_holding?: ManualHoldingDetail;
 };
 
 export type CryptoMarket = {

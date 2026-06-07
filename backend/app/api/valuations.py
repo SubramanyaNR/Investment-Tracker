@@ -6,6 +6,7 @@ from app.db.models import ValuationHistory
 from app.services.valuation import (
     recalculate_crypto_valuations,
     recalculate_fixed_income_valuations,
+    recalculate_manual_valuations,
     recalculate_mf_valuations,
 )
 from app.services.portfolio import create_or_update_snapshot
@@ -26,6 +27,7 @@ async def recalculate(
     crypto = await recalculate_crypto_valuations(session, user_id)
     fi = await recalculate_fixed_income_valuations(session, user_id)
     mf = await recalculate_mf_valuations(session, user_id)
+    await recalculate_manual_valuations(session, user_id)
     await create_or_update_snapshot(session, user_id)
     return {"crypto": crypto, "fixed_income": fi, "mutual_funds": mf}
 
