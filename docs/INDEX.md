@@ -16,6 +16,7 @@
 | Auth, JWT, RLS, multi-tenancy design | `architecture/AUTH.md` |
 | Whether to build something / who it's for | `product/VISION.md`, `product/PRINCIPLES.md` |
 | What to build next / priority | `product/ROADMAP.md` |
+| Full feature backlog (all statuses, sequence, decisions) | `product/FEATURE-BACKLOG.md` |
 | A specific feature's behaviour + gotchas | `features/<feature>.md` |
 | Deploying to the VPS | `runbooks/DEPLOY.md` |
 | Backups / restore | `runbooks/BACKUP-RESTORE.md` |
