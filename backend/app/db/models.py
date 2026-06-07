@@ -2,6 +2,7 @@ import uuid
 from sqlalchemy import String, Numeric, Date, DateTime, ForeignKey, ForeignKeyConstraint, JSON, UniqueConstraint, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import UUID
+from typing import Optional
 
 
 class Base(DeclarativeBase):
@@ -151,3 +152,23 @@ class MutualFundHolding(Base):
     units = mapped_column(Numeric(24, 10), nullable=False)
     nav_at_purchase = mapped_column(Numeric(18, 6), nullable=False)
     monthly_sip = mapped_column(Numeric(18, 2), nullable=True)
+
+
+class ManualHolding(Base):
+    __tablename__ = "manual_holdings"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["asset_id", "user_id"], ["assets.id", "assets.user_id"],
+            name="fk_manual_holdings_asset_user", ondelete="CASCADE",
+        ),
+    )
+
+    asset_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("assets.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    cost_basis = mapped_column(Numeric(18, 2), nullable=False)
+    current_value = mapped_column(Numeric(18, 2), nullable=False)
+    notes: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    value_updated_at = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

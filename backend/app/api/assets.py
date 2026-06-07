@@ -7,7 +7,7 @@ from sqlalchemy import select, delete, and_
 from sqlalchemy.exc import IntegrityError
 from typing import Optional
 from app.api.deps import get_session
-from app.db.models import Asset, CryptoHolding, FixedIncomeHolding, MutualFundHolding, Transaction, ValuationHistory
+from app.db.models import Asset, CryptoHolding, FixedIncomeHolding, ManualHolding, MutualFundHolding, Transaction, ValuationHistory
 from app.services.fixed_income import compound_value, rd_current_value
 from app.core.auth import get_current_user_id
 
@@ -37,8 +37,12 @@ class AssetCreate(BaseModel):
     amount_invested: Optional[Decimal] = None   # total corpus user enters
     nav_at_purchase: Optional[Decimal] = None
     monthly_sip: Optional[Decimal] = None
+    # Manual
+    cost_basis: Optional[Decimal] = None        # what the user paid
+    current_value: Optional[Decimal] = None     # user's current estimate
+    notes: Optional[str] = Field(None, max_length=500)
 
-    @field_validator("quantity", "avg_buy_price", "principal", "amount_invested", "nav_at_purchase", "monthly_sip")
+    @field_validator("quantity", "avg_buy_price", "principal", "amount_invested", "nav_at_purchase", "monthly_sip", "cost_basis", "current_value")
     @classmethod
     def _positive_amounts(cls, v, info):
         if v is not None and v <= 0:
@@ -129,6 +133,11 @@ async def list_assets(
     )
     mf_map = {str(h.asset_id): h for h in mf_result.scalars().all()}
 
+    manual_result = await session.execute(
+        select(ManualHolding).where(ManualHolding.asset_id.in_(asset_ids))
+    )
+    manual_map = {str(h.asset_id): h for h in manual_result.scalars().all()}
+
     rows = []
     for asset in assets:
         aid = str(asset.id)
@@ -159,6 +168,14 @@ async def list_assets(
                 "nav_at_purchase": float(mf.nav_at_purchase),
                 "monthly_sip": float(mf.monthly_sip) if mf.monthly_sip else None,
                 "amount_invested": float(mf.units * mf.nav_at_purchase),
+            }
+        elif asset.asset_type == "MANUAL" and aid in manual_map:
+            m = manual_map[aid]
+            row["manual_holding"] = {
+                "cost_basis": float(m.cost_basis),
+                "current_value": float(m.current_value),
+                "notes": m.notes,
+                "value_updated_at": m.value_updated_at.isoformat(),
             }
 
         rows.append(row)
@@ -414,6 +431,37 @@ async def create_asset(
             price_per_unit=None,
         ))
         await _write_initial_valuation(session, user_id, asset.id, fi_invested, fi_current, fi_current - fi_invested)
+        await session.commit()
+        await session.refresh(asset)
+        return _asset_row(asset)
+
+    # ── MANUAL ───────────────────────────────────────────────────────────────
+    if payload.asset_type == "MANUAL":
+        if payload.cost_basis is None or payload.current_value is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Manual asset requires cost_basis (what you paid) and current_value (estimated value today)",
+            )
+
+        asset = Asset(
+            user_id=user_id,
+            name=payload.name,
+            asset_type="MANUAL",
+            category=payload.category,
+            liquidity_tier=payload.liquidity_tier,
+        )
+        session.add(asset)
+        await session.flush()
+
+        session.add(ManualHolding(
+            user_id=user_id,
+            asset_id=asset.id,
+            cost_basis=payload.cost_basis,
+            current_value=payload.current_value,
+            notes=payload.notes,
+        ))
+        pnl = payload.current_value - payload.cost_basis
+        await _write_initial_valuation(session, user_id, asset.id, payload.cost_basis, payload.current_value, pnl, source="manual")
         await session.commit()
         await session.refresh(asset)
         return _asset_row(asset)
