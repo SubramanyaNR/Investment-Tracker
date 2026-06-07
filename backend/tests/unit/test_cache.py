@@ -75,3 +75,43 @@ async def test_raises_when_no_cached_value_and_fetch_fails():
 
     with pytest.raises(RuntimeError):
         await c.get_or_fetch("k", 60, fetch)
+
+
+async def test_fetched_at_records_wall_clock_time():
+    """F2 — fetched_at returns a recent timestamp after a cache miss."""
+    import time
+    c = TTLCache()
+
+    async def fetch_v():
+        return "v"
+
+    before = time.time()
+    await c.get_or_fetch("k", 60, fetch_v)
+    after = time.time()
+    ts = c.fetched_at("k")
+    assert ts is not None
+    assert before <= ts <= after
+
+
+async def test_latest_fetch_returns_most_recent_across_prefix():
+    """F2 — latest_fetch picks the newest entry within a prefix."""
+    import time
+    c = TTLCache()
+
+    async def empty_dict():
+        return {}
+
+    await c.get_or_fetch("cg:prices:inr:bitcoin", 60, empty_dict)
+    await asyncio.sleep(0.01)
+    await c.get_or_fetch("cg:prices:inr:ethereum", 60, empty_dict)
+
+    ts = c.latest_fetch("cg:")
+    assert ts is not None
+    assert time.time() - ts < 2          # reflects the ethereum fetch (most recent)
+    assert c.latest_fetch("mf:nav:") is None   # unrelated prefix returns None
+
+
+async def test_latest_fetch_none_when_cache_empty():
+    """F2 — latest_fetch returns None if no keys match prefix."""
+    c = TTLCache()
+    assert c.latest_fetch("cg:") is None
