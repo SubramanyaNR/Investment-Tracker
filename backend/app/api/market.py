@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from app.core.cache import market_cache
 from app.core.ratelimit import rate_limit_ip
 from app.integrations.coingecko import get_top_cryptos
 from app.integrations.mfapi import get_latest_nav, search_schemes
@@ -29,3 +30,16 @@ async def get_mf_nav(scheme_code: str):
         return await get_latest_nav(scheme_code)
     except Exception:
         raise HTTPException(status_code=502, detail="Upstream market data unavailable")
+
+
+@router.get("/freshness")
+async def market_freshness():
+    """Return the last fetch timestamps (Unix epoch seconds) for crypto and MF price caches.
+
+    Returns null for a category if no prices have been fetched yet this process lifetime.
+    Frontend uses these to display "Prices updated X min ago" labels.
+    """
+    return {
+        "crypto_updated_at": market_cache.latest_fetch("cg:"),
+        "mf_updated_at": market_cache.latest_fetch("mf:nav:"),
+    }
