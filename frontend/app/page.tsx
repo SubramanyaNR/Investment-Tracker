@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import {
   createAsset, deleteAsset, getAssets, getDashboard, getLatestValuations,
-  getSnapshots, getTransactions, getMfCurrentNav, recalculateValuations, redeemMutualFund,
-  sellCrypto, topUpSavings,
-  type Asset, type CryptoMarket, type MutualFundScheme,
+  getSnapshots, getTransactions, getMfCurrentNav, getMarketFreshness,
+  recalculateValuations, redeemMutualFund, sellCrypto, topUpSavings,
+  type Asset, type CryptoMarket, type MarketFreshness, type MutualFundScheme,
   type Snapshot, type TxPage, type TxRecord, type Valuation,
 } from "@/lib/api";
 import CryptoSelector    from "@/components/CryptoSelector";
@@ -45,6 +45,14 @@ function inr(n: number) {
 function fmtQty(n: number) {
   return parseFloat(n.toFixed(8)).toString();
 }
+function fmtFreshness(ts: number | null): string {
+  if (!ts) return "";
+  const mins = Math.floor((Date.now() / 1000 - ts) / 60);
+  if (mins < 1)  return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.floor(mins / 60);
+  return hrs === 1 ? "1 hour ago" : `${hrs} hours ago`;
+}
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // PAGE
@@ -61,6 +69,7 @@ export default function DashboardPage() {
   const [snapshots,    setSnapshots]    = useState<Snapshot[]>([]);
   const [transactions, setTransactions] = useState<TxRecord[]>([]);
   const [txTotal,      setTxTotal]      = useState(0);
+  const [freshness,    setFreshness]    = useState<MarketFreshness | null>(null);
 
   // ── UI state ──
   const [tab, setTab] = useState<Tab>("overview");
@@ -114,6 +123,8 @@ export default function DashboardPage() {
     setSnapshots(s);
     setTransactions(tx.items);
     setTxTotal(tx.total);
+    // Freshness is non-blocking: null if no prices cached yet (cold start).
+    getMarketFreshness().then(setFreshness).catch(() => {});
   }
 
   useEffect(() => {
@@ -363,6 +374,25 @@ export default function DashboardPage() {
             sub={`${pnlPositive ? "+" : "−"}${Math.abs(pnlPct).toFixed(2)}% overall return`}
             accent={pnlPositive ? "emerald" : "red"} />
         </section>
+
+        {/* ── Price freshness ── */}
+        {freshness && (freshness.crypto_updated_at || freshness.mf_updated_at) && (
+          <p className="text-[11px] text-right" style={{ color: "var(--text-muted)", marginTop: "-8px" }}>
+            {freshness.crypto_updated_at && (
+              <span title="Crypto prices update continuously via CoinGecko">
+                Crypto {fmtFreshness(freshness.crypto_updated_at)}
+              </span>
+            )}
+            {freshness.crypto_updated_at && freshness.mf_updated_at && (
+              <span className="mx-1.5">·</span>
+            )}
+            {freshness.mf_updated_at && (
+              <span title="MF NAV updates once daily at market close (3:45 pm IST)">
+                MF NAV {fmtFreshness(freshness.mf_updated_at)}
+              </span>
+            )}
+          </p>
+        )}
 
         {/* ── Tab navigation ── */}
         <div className="card overflow-visible" style={{ overflow: "visible" }}>
