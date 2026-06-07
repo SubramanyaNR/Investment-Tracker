@@ -4,10 +4,12 @@
 > It encodes one system reasoning through **seven lenses** and stopping at **one approval gate**.
 > The founder (CEO) approves; nothing in the gated set is executed without an explicit "approved".
 
-## The model: one system, seven lenses, one gate
+## The model: one system, seven lenses + conditional specialist, one gate
 
 There are **no separate agents**. For any change I reason through the seven review perspectives
-below in a single pass, surface each verdict, then halt at the CEO gate. Full mandates: `ROLES.md`.
+below in a single pass, plus a conditional eighth lens (Investor Experience Reviewer) if the feature
+is investor-facing. Surface each verdict, then halt at the CEO gate. Full mandates: `ROLES.md`
+and `INVESTOR-EXPERIENCE-REVIEW.md`.
 
 | Lens | One-line mandate |
 |---|---|
@@ -18,6 +20,7 @@ below in a single pass, surface each verdict, then halt at the CEO gate. Full ma
 | Engineering Lead | File-level plan, sequence, migration strategy. Keep scope minimal. |
 | QA Lead | "Assume it breaks." Edge cases, regression, test plan. |
 | Security Reviewer | Pessimist. AuthN/Z, multi-tenancy, IDOR, secrets, API abuse. Attackers > developers. |
+| **Investor Experience Reviewer** | **[Conditional]** "Can the investor understand and trust this metric/dashboard/insight?" Comprehension + trust review. |
 
 ## The 6 steps + gate
 
@@ -40,6 +43,22 @@ Files affected · migration requirements (`make migrate`) · implementation sequ
 ### Step 5 — QA Plan
 Test scenarios · edge cases · regression risks · **auth + multi-tenancy re-validation**
 (re-run `runbooks/SECURITY-AUDIT.md` §7 matrices).
+
+### Step 5.5 — Investor Experience Review (Conditional)
+
+**Only if:** Feature matches activation rules in `docs/operating-model/INVESTOR-EXPERIENCE-REVIEW.md`.
+
+Produce **Investor Experience Review** report covering:
+- **Metric comprehension:** Is the metric self-explanatory? Are units and calculations clear?
+- **Dashboard clarity:** Information hierarchy correct? Can investor understand status at a glance (on mobile)?
+- **Investor trust:** Does presentation build or erode confidence? Are limitations clear?
+- **Presentation of insights:** Is language investor-friendly? Are caveats and confidence levels clear?
+- **Information hierarchy:** Is the most critical data prominent? Does new element fit the existing dashboard?
+- **Mobile usability:** Does this work on 390px? Are interactive elements usable on touch?
+
+Report to CEO as input for approval decision. **Advisory only.** Does not block approval.
+
+See example output in `ROLES.md` under "Investor Experience Reviewer."
 
 ### Step 6 — ⛔ CEO APPROVAL GATE
 **STOP. Wait for explicit approval.** Do not call Edit/Write/`make migrate` on gated scope

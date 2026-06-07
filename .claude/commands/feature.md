@@ -4,10 +4,10 @@ description: Run the WealthSignal SDLC review for a change and stop at the CEO a
 
 You are running the WealthSignal operating model for this request: **$ARGUMENTS**
 
-First read `docs/operating-model/SDLC.md`, `docs/operating-model/ROLES.md`, and
-`docs/operating-model/GOVERNANCE.md`. Load only the additional docs the request touches, using
-`docs/INDEX.md` routing (e.g. `architecture/DATA-MODEL.md` for schema, `architecture/AUTH.md` for
-auth, `product/PRINCIPLES.md` for scope).
+First read `docs/operating-model/SDLC.md`, `docs/operating-model/ROLES.md`, `docs/operating-model/GOVERNANCE.md`,
+and `docs/operating-model/INVESTOR-EXPERIENCE-REVIEW.md`. Load only the additional docs the request
+touches, using `docs/INDEX.md` routing (e.g. `architecture/DATA-MODEL.md` for schema, `architecture/AUTH.md`
+for auth, `product/PRINCIPLES.md` for scope).
 
 Reason through the seven lenses and produce, in order, with each lens's verdict made explicit:
 
@@ -27,6 +27,10 @@ Files affected · migration requirements · implementation sequence (Engineering
 
 ### 5. QA Plan
 Test scenarios · edge cases · regression risks · auth + multi-tenancy re-validation (QA Lead).
+
+### 5.5 Investor Experience Review (if applicable)
+Check `docs/operating-model/INVESTOR-EXPERIENCE-REVIEW.md`. If the feature matches an activation
+rule, produce Investor Experience Review report. Otherwise, skip.
 
 ### 6. ⛔ CEO APPROVAL GATE
 **STOP here.** Present the above and ask the CEO to approve, revise, or reject. Do **not** call
