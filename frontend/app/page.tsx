@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import {
   createAsset, deleteAsset, getAssets, getDashboard, getLatestValuations,
   getSnapshots, getTransactions, getMfCurrentNav, getMarketFreshness,
+  importCsvDryRun, importCsvConfirm,
   recalculateValuations, redeemMutualFund, sellCrypto, topUpSavings,
-  type Asset, type CryptoMarket, type MarketFreshness, type MutualFundScheme,
+  type Asset, type CryptoMarket, type ImportConfirmResult, type ImportDryRunResult,
+  type ImportError, type MarketFreshness, type MutualFundScheme,
   type Snapshot, type TxPage, type TxRecord, type Valuation,
 } from "@/lib/api";
 import CryptoSelector    from "@/components/CryptoSelector";
@@ -18,7 +20,7 @@ import { useAuth }       from "@/components/AuthProvider";
 // ── Types ──────────────────────────────────────────────────────────────────
 
 type Dashboard = { total_value: number; total_invested: number; total_pnl: number; pnl_percent?: number };
-type Tab = "overview" | "holdings" | "transactions";
+type Tab = "overview" | "holdings" | "transactions" | "import";
 
 // ── Config ─────────────────────────────────────────────────────────────────
 
@@ -71,6 +73,13 @@ export default function DashboardPage() {
   const [transactions, setTransactions] = useState<TxRecord[]>([]);
   const [txTotal,      setTxTotal]      = useState(0);
   const [freshness,    setFreshness]    = useState<MarketFreshness | null>(null);
+
+  // ── Import state ──
+  const [importFile,    setImportFile]    = useState<File | null>(null);
+  const [importPreview, setImportPreview] = useState<ImportDryRunResult | null>(null);
+  const [importResult,  setImportResult]  = useState<ImportConfirmResult | null>(null);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importError,   setImportError]   = useState("");
 
   // ── UI state ──
   const [tab, setTab] = useState<Tab>("overview");
@@ -248,6 +257,35 @@ export default function DashboardPage() {
     }
   }
 
+  async function handleImportPreview() {
+    if (!importFile) { setImportError("Select a CSV file first."); return; }
+    try {
+      setImportLoading(true); setImportError(""); setImportPreview(null); setImportResult(null);
+      const result = await importCsvDryRun(importFile);
+      setImportPreview(result);
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : "Preview failed.");
+    } finally {
+      setImportLoading(false);
+    }
+  }
+
+  async function handleImportConfirm() {
+    if (!importFile || !importPreview) return;
+    try {
+      setImportLoading(true); setImportError("");
+      const result = await importCsvConfirm(importFile);
+      setImportResult(result);
+      setImportPreview(null);
+      setImportFile(null);
+      await loadData();
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : "Import failed.");
+    } finally {
+      setImportLoading(false);
+    }
+  }
+
   async function removeAsset(assetId: string) {
     if (!confirm("Delete this asset? This cannot be undone.")) return;
     try {
@@ -412,11 +450,14 @@ export default function DashboardPage() {
         {/* ── Tab navigation ── */}
         <div className="card overflow-visible" style={{ overflow: "visible" }}>
           <nav className="tab-nav" role="tablist" aria-label="Portfolio sections">
-            {(["overview", "holdings", "transactions"] as Tab[]).map((t) => (
+            {(["overview", "holdings", "transactions", "import"] as Tab[]).map((t) => (
               <button key={t} type="button" role="tab" aria-selected={tab === t}
                 className={`tab-btn ${tab === t ? "active" : ""}`}
                 onClick={() => setTab(t)}>
-                {t === "overview" ? "Overview" : t === "holdings" ? `Holdings${assets.length > 0 ? ` · ${assets.length}` : ""}` : `Transactions${txTotal > 0 ? ` · ${txTotal}` : ""}`}
+                {t === "overview" ? "Overview"
+                  : t === "holdings" ? `Holdings${assets.length > 0 ? ` · ${assets.length}` : ""}`
+                  : t === "transactions" ? `Transactions${txTotal > 0 ? ` · ${txTotal}` : ""}`
+                  : "Import CSV"}
               </button>
             ))}
           </nav>
@@ -878,6 +919,139 @@ export default function DashboardPage() {
                     })}
                   </div>
                 </>
+              )}
+            </div>
+          )}
+
+          {/* ── Import CSV tab ── */}
+          {tab === "import" && (
+            <div className="p-5 space-y-5" role="tabpanel">
+              <div>
+                <h2 className="section-title">Import Transaction History</h2>
+                <p className="section-sub">Backfill historical SIP and crypto transactions from a CSV file.</p>
+              </div>
+
+              {/* Template download */}
+              <div className="rounded-lg px-4 py-3 flex items-center justify-between gap-4"
+                style={{ background: "rgba(167,139,250,0.07)", border: "1px solid rgba(167,139,250,0.18)" }}>
+                <div>
+                  <p className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>Start with the template</p>
+                  <p className="text-[10px] mt-0.5" style={{ color: "var(--text-muted)" }}>
+                    Columns: transaction_date · asset_type · asset_name · transaction_type · amount · units · price_per_unit · coingecko_id · scheme_code
+                  </p>
+                </div>
+                <a href="/api/import/csv/template" download="wealthsignal_import_template.csv"
+                  className="btn-refresh shrink-0 text-violet-400" style={{ textDecoration: "none" }}>
+                  Download template
+                </a>
+              </div>
+
+              {/* File picker */}
+              <Field label="Upload CSV file">
+                <input type="file" accept=".csv,text/csv"
+                  onChange={(e) => {
+                    setImportFile(e.target.files?.[0] ?? null);
+                    setImportPreview(null); setImportResult(null); setImportError("");
+                  }}
+                  className="field-input" />
+              </Field>
+
+              {importError && (
+                <div className="error-banner" role="alert">
+                  <span className="error-text text-sm">{importError}</span>
+                  <button onClick={() => setImportError("")} className="ml-auto text-base leading-none" style={{ color: "var(--text-muted)" }}>×</button>
+                </div>
+              )}
+
+              <button type="button" onClick={handleImportPreview}
+                disabled={!importFile || importLoading}
+                className="btn-refresh">
+                {importLoading && !importPreview ? "Previewing…" : "Preview import"}
+              </button>
+
+              {/* Success result */}
+              {importResult && (
+                <div className="rounded-lg px-4 py-3 space-y-1"
+                  style={{ background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.2)" }}>
+                  <p className="text-sm font-semibold text-emerald-400">
+                    ✓ {importResult.transactions_imported} transactions imported
+                  </p>
+                  <p className="text-[11px]" style={{ color: "var(--text-secondary)" }}>
+                    {importResult.assets_created} new position{importResult.assets_created !== 1 ? "s" : ""} created
+                    · {importResult.assets_merged} merged into existing holdings
+                  </p>
+                  {importResult.error_count > 0 && (
+                    <p className="text-[11px] text-amber-400">{importResult.error_count} row{importResult.error_count !== 1 ? "s" : ""} skipped — fix and re-import.</p>
+                  )}
+                  <p className="text-[10px] mt-2" style={{ color: "var(--text-muted)" }}>
+                    Click Refresh to update your portfolio valuations.
+                  </p>
+                </div>
+              )}
+
+              {/* Preview table */}
+              {importPreview && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                        Preview — {importPreview.valid_count} valid row{importPreview.valid_count !== 1 ? "s" : ""}
+                        {importPreview.error_count > 0 && (
+                          <span className="ml-2 text-amber-400">{importPreview.error_count} with errors</span>
+                        )}
+                      </p>
+                      <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                        Review below, then confirm to import.
+                      </p>
+                    </div>
+                    <button type="button" onClick={handleImportConfirm}
+                      disabled={importPreview.valid_count === 0 || importLoading}
+                      className="btn-primary">
+                      {importLoading ? "Importing…" : `Import ${importPreview.valid_count} row${importPreview.valid_count !== 1 ? "s" : ""}`}
+                    </button>
+                  </div>
+
+                  {/* Valid rows */}
+                  {importPreview.preview.length > 0 && (
+                    <div className="overflow-x-auto rounded-lg" style={{ border: "1px solid var(--border-subtle)" }}>
+                      <div className="grid min-w-[620px] px-4 py-2 text-[9px] font-bold uppercase tracking-[0.13em]"
+                        style={{ gridTemplateColumns: "36px 100px 100px 1fr 80px 90px 90px", background: "rgba(255,255,255,0.012)", color: "var(--text-muted)", borderBottom: "1px solid var(--border-subtle)" }}>
+                        <span>#</span><span>Date</span><span>Type</span><span>Asset</span><span>Tx</span><span>Amount</span><span>Units</span>
+                      </div>
+                      {importPreview.preview.map((row) => (
+                        <div key={row.row_num}
+                          className="grid min-w-[620px] items-center px-4 py-2 text-[11px]"
+                          style={{ gridTemplateColumns: "36px 100px 100px 1fr 80px 90px 90px", borderBottom: "1px solid var(--border-subtle)" }}>
+                          <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>{row.row_num}</span>
+                          <span className="font-mono text-[10px]" style={{ color: "var(--text-muted)" }}>{row.transaction_date}</span>
+                          <span>
+                            <span className={(TYPE_CFG[row.asset_type] ?? TYPE_CFG.MUTUAL_FUND).badge}>{row.asset_type}</span>
+                          </span>
+                          <span className="truncate" style={{ color: "var(--text-secondary)" }}>{row.asset_name}</span>
+                          <span className={TX_CLASS[row.transaction_type] ?? "tx-badge tx-badge--buy"}>{row.transaction_type}</span>
+                          <span className="font-mono" style={{ color: "var(--text-primary)" }}>{inr(row.amount)}</span>
+                          <span className="font-mono" style={{ color: "var(--text-secondary)" }}>{row.units != null ? fmtQty(row.units) : "—"}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Error rows */}
+                  {importPreview.errors.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-[11px] font-semibold text-amber-400">Rows with errors (will be skipped):</p>
+                      {importPreview.errors.map((err: ImportError) => (
+                        <div key={err.row_num} className="rounded-lg px-3 py-2"
+                          style={{ background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.2)" }}>
+                          <p className="text-[11px] font-medium text-amber-400">Row {err.row_num}</p>
+                          {err.errors.map((e, i) => (
+                            <p key={i} className="text-[10px] mt-0.5" style={{ color: "var(--text-muted)" }}>· {e}</p>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           )}

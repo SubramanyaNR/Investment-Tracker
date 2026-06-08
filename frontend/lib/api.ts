@@ -109,6 +109,42 @@ export type MarketFreshness = {
   mf_updated_at: number | null;
 };
 
+export type ImportPreviewRow = {
+  row_num: number;
+  transaction_date: string;
+  asset_type: string;
+  asset_name: string;
+  transaction_type: string;
+  amount: number;
+  units: number | null;
+  price_per_unit: number | null;
+  coingecko_id: string | null;
+  scheme_code: string | null;
+};
+
+export type ImportError = {
+  row_num: number;
+  errors: string[];
+  raw: Record<string, string>;
+};
+
+export type ImportDryRunResult = {
+  dry_run: true;
+  valid_count: number;
+  error_count: number;
+  preview: ImportPreviewRow[];
+  errors: ImportError[];
+};
+
+export type ImportConfirmResult = {
+  dry_run: false;
+  transactions_imported: number;
+  assets_created: number;
+  assets_merged: number;
+  error_count: number;
+  errors: ImportError[];
+};
+
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 async function get<T>(path: string): Promise<T> {
@@ -145,6 +181,38 @@ export const getSnapshots = () => get<Snapshot[]>("/snapshots");
 export const getTransactions = () => get<TxPage>("/transactions");
 export const getTopCryptos = () => get<CryptoMarket[]>("/market/crypto/top");
 export const getMarketFreshness = () => get<MarketFreshness>("/market/freshness");
+
+export async function importCsvDryRun(file: File): Promise<ImportDryRunResult> {
+  const form = new FormData();
+  form.append("file", file);
+  const headers = await authHeaders();
+  const res = await fetch(`${API_BASE_URL}/import/csv?dry_run=true`, {
+    method: "POST",
+    headers,
+    body: form,
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Import preview failed: ${res.status} ${text}`);
+  }
+  return res.json();
+}
+
+export async function importCsvConfirm(file: File): Promise<ImportConfirmResult> {
+  const form = new FormData();
+  form.append("file", file);
+  const headers = await authHeaders();
+  const res = await fetch(`${API_BASE_URL}/import/csv?dry_run=false`, {
+    method: "POST",
+    headers,
+    body: form,
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Import failed: ${res.status} ${text}`);
+  }
+  return res.json();
+}
 export const recalculateValuations = () => post<unknown>("/valuations/recalculate");
 
 export const searchMutualFunds = (q: string) =>
