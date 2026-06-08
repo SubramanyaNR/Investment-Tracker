@@ -178,6 +178,7 @@
 | P14 | **Dividend / interest income view** | 1 week | 🟡 | Running total of passive income from portfolio. Separate from capital appreciation. |
 | P15 | **Smallcase integration** | 2 weeks | 🟡 | Smallcase has an API. Proper integration, not manual entry. |
 | P16 | **Concentration/liquidity alerts — advanced** | 1 week | 🟡 | Expand F7/F8 with user-configurable thresholds post-launch. |
+| P17 | **Serve CSV import template via Nginx static asset** | 2 hours | 🟡 | Currently served by FastAPI (GET /import/csv/template). Move to Nginx static file delivery post-VPS to reduce unnecessary FastAPI overhead for a hardcoded file. Prerequisite: V2 (Nginx). No user impact; transparent swap. |
 
 ### On Hold — Requires CEO Approval to Resume
 

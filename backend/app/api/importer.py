@@ -1,8 +1,12 @@
 """CSV import router — F4.
 
-POST /import/csv?dry_run=true   → validate + preview; no DB writes
-POST /import/csv?dry_run=false  → execute import
-GET  /import/csv/template       → download CSV template
+POST /import/csv?dry_run=true   → validate + preview; no DB writes (authenticated)
+POST /import/csv?dry_run=false  → execute import              (authenticated)
+GET  /import/csv/template       → download CSV template       (public, IP rate-limited)
+
+Routing split rationale: the template is a hardcoded static file with no user data.
+Browser-native <a href> download cannot send Authorization headers, so the template
+must be publicly accessible. Import endpoints remain fully gated behind JWT auth.
 """
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
@@ -10,19 +14,27 @@ from fastapi.responses import Response
 
 from app.api.deps import get_session
 from app.core.auth import get_current_user_id
-from app.core.ratelimit import rate_limit_user
+from app.core.ratelimit import rate_limit_ip, rate_limit_user
 from app.services.importer import (
     CSV_TEMPLATE,
     parse_and_validate,
     execute_import,
 )
 
+# Public router — no auth dependency. Registered in main.py without _per_user.
+# Template is static content; IP rate limiting prevents trivial abuse.
+public_router = APIRouter(prefix="/import", tags=["import"])
+
+# Authenticated router — registered in main.py with _per_user.
 router = APIRouter(prefix="/import", tags=["import"])
 
 
-@router.get("/csv/template")
+@public_router.get(
+    "/csv/template",
+    dependencies=[Depends(rate_limit_ip("rl_market_default"))],
+)
 async def download_template():
-    """Return a downloadable CSV template with example rows."""
+    """Return a downloadable CSV template with example rows. Public — no auth required."""
     return Response(
         content=CSV_TEMPLATE,
         media_type="text/csv",
