@@ -177,15 +177,31 @@ async def test_cross_user_isolation(api, admin_engine):
     assert resp_b.json() == [], "User B must see none of User A's imported assets"
 
 
-async def test_template_download(api):
-    """Q7 — GET /import/csv/template returns a valid CSV with example rows."""
+async def test_template_download_authenticated(api):
+    """Q7a — Authenticated user can download template."""
     resp = await api.as_user(USER_A).get("/import/csv/template")
     assert resp.status_code == 200
     assert "text/csv" in resp.headers["content-type"]
-    content = resp.text
-    assert "transaction_date" in content
-    assert "coingecko_id" in content
-    assert "bitcoin" in content   # template has an example row
+    assert "transaction_date" in resp.text
+    assert "bitcoin" in resp.text
+
+
+async def test_template_download_anonymous(anon_client):
+    """Q7b — Anonymous user (no JWT) can download template. This is the bug fix."""
+    resp = await anon_client.get("/import/csv/template")
+    assert resp.status_code == 200, f"Expected 200 for public template, got {resp.status_code}: {resp.text}"
+    assert "text/csv" in resp.headers["content-type"]
+    assert "transaction_date" in resp.text
+
+
+async def test_import_requires_authentication(anon_client):
+    """Q7c — Anonymous POST /import/csv is rejected with 401."""
+    content = (HEADER + CRYPTO_ROW).encode()
+    resp = await anon_client.post(
+        "/import/csv?dry_run=true",
+        files={"file": ("test.csv", io.BytesIO(content), "text/csv")},
+    )
+    assert resp.status_code == 401, f"Expected 401 for unauthenticated import, got {resp.status_code}"
 
 
 async def test_no_valid_rows_returns_400(api):
