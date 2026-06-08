@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     rl_user_recalculate: int = 10    # /valuations/recalculate (hits upstream)
     rl_user_insights: int = 6        # /insights/refresh (calls Gemini)
     rl_user_import: int = 5          # /import/csv (file parsing + DB writes)
+    rl_user_xirr: int = 20           # /xirr (CPU-light but DB-read heavy)
 
     # ── A9: JWKS unknown-kid negative cache ─────────────────────────────────
     jwks_negative_cache_ttl: int = 60        # seconds a confirmed-bad kid is remembered

@@ -109,6 +109,23 @@ export type MarketFreshness = {
   mf_updated_at: number | null;
 };
 
+export type XirrAsset = {
+  asset_id: string;
+  asset_name: string;
+  asset_type: string;
+  xirr: number | null;        // decimal e.g. 0.143 for 14.3%; null = insufficient data
+  start_date: string | null;  // ISO date of first transaction
+  total_invested: number;
+  current_value: number;
+};
+
+export type XirrResult = {
+  portfolio_xirr: number | null;
+  portfolio_start_date: string | null;
+  manual_assets_excluded: boolean;
+  assets: XirrAsset[];
+};
+
 export type ImportPreviewRow = {
   row_num: number;
   transaction_date: string;
@@ -181,6 +198,7 @@ export const getSnapshots = () => get<Snapshot[]>("/snapshots");
 export const getTransactions = () => get<TxPage>("/transactions");
 export const getTopCryptos = () => get<CryptoMarket[]>("/market/crypto/top");
 export const getMarketFreshness = () => get<MarketFreshness>("/market/freshness");
+export const getXirr = () => get<XirrResult>("/xirr");
 
 export async function importCsvDryRun(file: File): Promise<ImportDryRunResult> {
   const form = new FormData();

@@ -3,12 +3,12 @@
 import { useEffect, useState } from "react";
 import {
   createAsset, deleteAsset, getAssets, getDashboard, getLatestValuations,
-  getSnapshots, getTransactions, getMfCurrentNav, getMarketFreshness,
+  getSnapshots, getTransactions, getMfCurrentNav, getMarketFreshness, getXirr,
   importCsvDryRun, importCsvConfirm,
   recalculateValuations, redeemMutualFund, sellCrypto, topUpSavings,
   type Asset, type CryptoMarket, type ImportConfirmResult, type ImportDryRunResult,
   type ImportError, type MarketFreshness, type MutualFundScheme,
-  type Snapshot, type TxPage, type TxRecord, type Valuation,
+  type Snapshot, type TxPage, type TxRecord, type Valuation, type XirrResult,
 } from "@/lib/api";
 import CryptoSelector    from "@/components/CryptoSelector";
 import MutualFundSelector from "@/components/MutualFundSelector";
@@ -48,6 +48,15 @@ function inr(n: number) {
 function fmtQty(n: number) {
   return parseFloat(n.toFixed(8)).toString();
 }
+function fmtXirr(r: number | null): string {
+  if (r === null) return "N/A";
+  return (r >= 0 ? "+" : "") + (r * 100).toFixed(1) + "%";
+}
+function fmtMonth(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso + "T00:00:00");
+  return d.toLocaleDateString("en-IN", { month: "short", year: "numeric" });
+}
 function fmtFreshness(ts: number | null): string {
   if (!ts) return "";
   const mins = Math.floor((Date.now() / 1000 - ts) / 60);
@@ -73,6 +82,7 @@ export default function DashboardPage() {
   const [transactions, setTransactions] = useState<TxRecord[]>([]);
   const [txTotal,      setTxTotal]      = useState(0);
   const [freshness,    setFreshness]    = useState<MarketFreshness | null>(null);
+  const [xirr,         setXirr]         = useState<XirrResult | null>(null);
 
   // ── Import state ──
   const [importFile,    setImportFile]    = useState<File | null>(null);
@@ -138,8 +148,9 @@ export default function DashboardPage() {
     setSnapshots(s);
     setTransactions(tx.items);
     setTxTotal(tx.total);
-    // Freshness is non-blocking: null if no prices cached yet (cold start).
+    // Non-blocking: both are supplemental data that don't block the main dashboard.
     getMarketFreshness().then(setFreshness).catch(() => {});
+    getXirr().then(setXirr).catch(() => {});
   }
 
   useEffect(() => {
@@ -419,13 +430,25 @@ export default function DashboardPage() {
         )}
 
         {/* ── KPI Strip (always visible) ── */}
-        <section className="grid grid-cols-1 gap-4 sm:grid-cols-3" aria-label="Portfolio summary">
+        <section className="grid grid-cols-2 gap-4 sm:grid-cols-4" aria-label="Portfolio summary">
           <KpiCard label="Net Worth"    value={inr(dashboard.total_value)}   sub="Total portfolio value" accent="amber" />
           <KpiCard label="Total Invested" value={inr(dashboard.total_invested)} sub={`${assets.length} position${assets.length !== 1 ? "s" : ""} tracked`} accent="violet" />
           <KpiCard label="Profit / Loss"
             value={(pnlPositive ? "+" : "−") + inr(dashboard.total_pnl)}
             sub={`${pnlPositive ? "+" : "−"}${Math.abs(pnlPct).toFixed(2)}% overall return`}
             accent={pnlPositive ? "emerald" : "red"} />
+          <KpiCard
+            label="Portfolio XIRR"
+            value={fmtXirr(xirr?.portfolio_xirr ?? null)}
+            sub={
+              xirr === null ? "Loading…"
+              : xirr.portfolio_xirr === null ? "Add transactions to see XIRR"
+              : `since ${fmtMonth(xirr.portfolio_start_date)}${xirr.manual_assets_excluded ? " · excl. manual" : ""}`
+            }
+            accent={
+              xirr?.portfolio_xirr == null ? "slate"
+              : xirr.portfolio_xirr >= 0 ? "emerald" : "red"
+            } />
         </section>
 
         {/* ── Price freshness ── */}
@@ -597,6 +620,41 @@ export default function DashboardPage() {
                                     </span>
                                   </p>
                                 )}
+                                {/* Per-asset XIRR (CRYPTO + MF with SIP view) */}
+                                {(() => {
+                                  const ax = xirr?.assets.find(a => a.asset_id === asset.id);
+                                  if (!ax || asset.asset_type === "MANUAL") return null;
+                                  if (asset.asset_type === "MUTUAL_FUND") {
+                                    return (
+                                      <p className="mt-0.5 text-[10px]" style={{ color: "var(--text-muted)" }}>
+                                        {ax.xirr !== null
+                                          ? <span className={ax.xirr >= 0 ? "text-emerald-400" : "text-red-400"}>
+                                              {fmtXirr(ax.xirr)} XIRR
+                                            </span>
+                                          : <span>XIRR N/A</span>}
+                                        {ax.start_date && (
+                                          <span> · since {fmtMonth(ax.start_date)}</span>
+                                        )}
+                                        {ax.total_invested > 0 && (
+                                          <span> · {inr(ax.total_invested)} invested</span>
+                                        )}
+                                      </p>
+                                    );
+                                  }
+                                  if (ax.xirr !== null) {
+                                    return (
+                                      <p className="mt-0.5 text-[10px]" style={{ color: "var(--text-muted)" }}>
+                                        <span className={ax.xirr >= 0 ? "text-emerald-400" : "text-red-400"}>
+                                          {fmtXirr(ax.xirr)} XIRR
+                                        </span>
+                                        {ax.start_date && (
+                                          <span> · since {fmtMonth(ax.start_date)}</span>
+                                        )}
+                                      </p>
+                                    );
+                                  }
+                                  return null;
+                                })()}
                                 {!asset.holding && !asset.fi_holding && !asset.mf_holding && !asset.manual_holding && (
                                   <p className="text-[10px] capitalize" style={{ color: "var(--text-muted)" }}>
                                     {asset.category} ·{" "}
@@ -1080,6 +1138,7 @@ const ACCENT_CFG = {
   violet:  { bg: "linear-gradient(135deg, rgba(167,139,250,0.20) 0%, rgba(167,139,250,0.06) 45%, var(--bg-surface) 100%)", border: "rgba(167,139,250,0.28)", bar: "linear-gradient(90deg, #a78bfa 0%, rgba(167,139,250,0.35) 60%, transparent 100%)", glow: "0 0 50px rgba(167,139,250,0.09), 0 1px 32px rgba(0,0,0,0.45)" },
   emerald: { bg: "linear-gradient(135deg, rgba(52,211,153,0.18) 0%, rgba(52,211,153,0.05) 45%, var(--bg-surface) 100%)",  border: "rgba(52,211,153,0.26)",  bar: "linear-gradient(90deg, #34d399 0%, rgba(52,211,153,0.35) 60%, transparent 100%)", glow: "0 0 50px rgba(52,211,153,0.08), 0 1px 32px rgba(0,0,0,0.45)" },
   red:     { bg: "linear-gradient(135deg, rgba(248,113,113,0.18) 0%, rgba(248,113,113,0.05) 45%, var(--bg-surface) 100%)", border: "rgba(248,113,113,0.26)", bar: "linear-gradient(90deg, #f87171 0%, rgba(248,113,113,0.35) 60%, transparent 100%)", glow: "0 0 50px rgba(248,113,113,0.08), 0 1px 32px rgba(0,0,0,0.45)" },
+  slate:   { bg: "linear-gradient(135deg, rgba(148,163,184,0.12) 0%, rgba(148,163,184,0.03) 45%, var(--bg-surface) 100%)", border: "rgba(148,163,184,0.18)", bar: "linear-gradient(90deg, #94a3b8 0%, rgba(148,163,184,0.25) 60%, transparent 100%)", glow: "0 0 50px rgba(148,163,184,0.05), 0 1px 32px rgba(0,0,0,0.45)" },
 };
 
 function KpiCard({ label, value, sub, accent }: { label: string; value: string; sub: string; accent: keyof typeof ACCENT_CFG }) {
