@@ -48,6 +48,17 @@ touches the minimum surface. Keeps scope to exactly what was approved.
 multi-tenancy re-validation for anything touching data access. Financial calculations must have a
 test plan before they touch real money.
 
+**User-journey test requirement:** For every interactive element in the feature (button, link,
+download, form, file upload), include at least one test scenario stated as a user outcome:
+*"User does X → Y happens."* An API contract test (endpoint returns 200) is necessary but not
+sufficient — it does not verify that the frontend mechanism that invokes the endpoint is compatible
+with the endpoint's auth requirements and response type.
+
+**Client-type discipline:** Identify the correct test client for each scenario. Browser-native
+navigation ≠ authenticated `fetch()`. If a scenario involves a link (`<a href>`), form action, or
+file download, the test must use an equivalent unauthenticated client or browser-native simulation,
+not an authenticated API client.
+
 ## Security Reviewer
 **Must be pessimistic. Assume attackers are smarter than developers.**
 **Reviews:** authentication, authorization, multi-tenancy, data isolation, API-abuse risks,
@@ -69,12 +80,13 @@ market swings, needing to understand "where is my money?" and "how is it doing?"
 trusting that metrics are labeled honestly.
 
 **Responsible for:**
-- **Metric comprehension:** Is this metric self-explanatory? Are units and calculations clear?
+- **Metric comprehension:** Is the metric self-explanatory? Are units and calculations clear?
 - **Dashboard clarity:** Information hierarchy correct? Can investor scan and understand at a glance?
 - **Investor trust:** Does the presentation build or erode confidence? Are limitations visible?
 - **Presentation of insights:** Is language investor-friendly, not technical? Are caveats clear?
 - **Information hierarchy:** Is the most critical data prominent? Does new element fit existing dashboard?
 - **Mobile usability:** Does this work on 390px? Are interactive elements usable on touch?
+- **Interaction completeness:** For every interactive element shown to the investor (button, link, download, form), verify that triggering it will produce the expected outcome given the investor's authentication state and browser context. A clearly labeled button that silently fails is a trust failure, not a presentation success.
 
 **Does NOT own:** Visual design, colors, spacing (Engineering Lead) · feature discoverability
 (Product Manager) · API design (Architect) · calculation correctness (QA) · authentication UI
