@@ -25,8 +25,17 @@ Risks · isolation · authN/Z · API-abuse surface (Security Reviewer, pessimist
 ### 4. Engineering Plan
 Files affected · migration requirements · implementation sequence (Engineering Lead). Minimum surface.
 
+For any frontend element using browser-native behavior (`<a href>`, form action, file download,
+redirect): explicitly state whether the target endpoint allows unauthenticated access and whether
+the mechanism is compatible with the endpoint's auth requirements.
+
 ### 5. QA Plan
 Test scenarios · edge cases · regression risks · auth + multi-tenancy re-validation (QA Lead).
+
+For each user-facing interactive element, include at least one scenario as a **user outcome**
+(*"User clicks X → Y happens"*) tested with the correct client type (browser-navigation ≠
+authenticated fetch). Do not rely solely on authenticated API tests to validate browser-native
+interactions.
 
 ### 5.5 Investor Experience Review (if applicable)
 Check `docs/operating-model/INVESTOR-EXPERIENCE-REVIEW.md`. If the feature matches an activation
@@ -41,6 +50,7 @@ Only after the CEO explicitly approves:
   `mkdir -p .claude/state && printf 'scope: %s\napproved_at: %s\n' "$ARGUMENTS" "$(date -Iseconds)" > .claude/state/feature-approved`
 - Then implement **only** the approved scope (Step 7) — no unrelated changes.
 - Run the post-implementation validation from SDLC.md (`make build`, `make validate`, auth +
-  tenancy matrices, `e2e-ui-test`). Fix → repeat until clean.
+  tenancy matrices, `e2e-ui-test` [mandatory for any UI change], User Journey Walkthrough). Fix →
+  repeat until clean.
 - When the feature lands, remove the marker (`rm -f .claude/state/feature-approved`) and, if it
   shipped, add `docs/features/<feature>.md`.

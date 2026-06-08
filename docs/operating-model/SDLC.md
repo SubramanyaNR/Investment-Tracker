@@ -40,9 +40,29 @@ Identity is **always** derived from the verified JWT `sub`, never from client in
 ### Step 4 — Engineering Plan
 Files affected · migration requirements (`make migrate`) · implementation sequence.
 
+**Browser Behavior Compatibility (required for any frontend change):**
+For every frontend element that uses browser-native behavior — `<a href>`, `<form action>`,
+`window.location`, file download, redirect — explicitly answer:
+> *"Does this mechanism send the `Authorization` header? Is the target endpoint compatible with
+> the authentication state the user is in when they trigger this action?"*
+
+Browser navigation cannot send custom headers. An authenticated `fetch()` can. Mismatch = silent
+auth failure from the user's perspective. Flag and resolve before implementation, not after.
+
 ### Step 5 — QA Plan
 Test scenarios · edge cases · regression risks · **auth + multi-tenancy re-validation**
 (re-run `runbooks/SECURITY-AUDIT.md` §7 matrices).
+
+**QA scenarios must include at least one user-journey test per user-facing action.**
+For every interactive element (button, link, download, form, upload) write at least one scenario
+as a user outcome, not an API contract:
+
+> ✅ "User clicks 'Download template' → file downloads in browser" (user outcome)
+> ❌ "GET /template returns 200 with text/csv" (API contract — necessary but not sufficient)
+
+Also check the correct **client type** for each test: authenticated user via API ≠ browser
+navigation. Anonymous access, browser-native downloads, and unauthenticated paths each require
+their own test scenario — not a variant of the authenticated API test.
 
 ### Step 5.5 — Investor Experience Review (Conditional)
 
@@ -76,8 +96,9 @@ Encoded in `runbooks/LOCAL-DEV.md`; never declare success without it:
 2. Run tests (until a suite exists, the SECURITY-AUDIT §7 matrices stand in for auth/tenancy).
 3. `make validate` — backend health + `/api` proxy.
 4. **Auth still works** + **multi-tenancy still works** (two-user isolation, 401-without-token, cross-user IDOR → 404).
-5. `e2e-ui-test` skill for affected + adjacent UI.
-6. Fix → repeat until clean.
+5. `e2e-ui-test` skill for affected + adjacent UI. **Mandatory when any user-facing UI was added or changed — not optional.**
+6. **User Journey Walkthrough** — for every interactive element added or changed, trace the full user action from click/tap through to outcome. Ask: *"Can the user actually do what this feature promises?"* This is not test execution; it is deliberate outcome verification. A feature is not complete if a user cannot complete its primary workflow.
+7. Fix → repeat until clean.
 
 ## Defaults this SDLC enforces
 - Monolith-first. No microservices / K8s / CQRS / event-sourcing / event-driven without an
