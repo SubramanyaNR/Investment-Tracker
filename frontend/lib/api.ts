@@ -126,6 +126,23 @@ export type XirrResult = {
   assets: XirrAsset[];
 };
 
+export type PerformanceEntry = {
+  asset_id: string;
+  asset_name: string;
+  asset_type: string;
+  pct_change: number;     // e.g. 6.3 for +6.3%
+  start_value: number;
+  end_value: number;
+};
+
+export type PerformanceResult = {
+  top: PerformanceEntry[];
+  bottom: PerformanceEntry[];
+  has_data: boolean;
+  period: "monthly" | "daily";
+  period_label: string;   // "Jun 2026" (monthly) or ISO date (daily)
+};
+
 export type ImportPreviewRow = {
   row_num: number;
   transaction_date: string;
@@ -199,6 +216,8 @@ export const getTransactions = () => get<TxPage>("/transactions");
 export const getTopCryptos = () => get<CryptoMarket[]>("/market/crypto/top");
 export const getMarketFreshness = () => get<MarketFreshness>("/market/freshness");
 export const getXirr = () => get<XirrResult>("/xirr");
+export const getMonthlyPerformance = () => get<PerformanceResult>("/performance/monthly");
+export const getDailyPerformance = () => get<PerformanceResult>("/performance/daily");
 
 export async function importCsvDryRun(file: File): Promise<ImportDryRunResult> {
   const form = new FormData();
