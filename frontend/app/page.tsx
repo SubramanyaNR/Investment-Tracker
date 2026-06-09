@@ -1143,52 +1143,62 @@ function MoverRow({ name, pct }: { name: string; pct: number }) {
 }
 
 function MoversSection({ monthly, daily }: { monthly: PerformanceResult | null; daily: PerformanceResult | null }) {
-  // Prefer daily when it has data; otherwise show monthly. Both restricted to CRYPTO + MF.
-  const showDaily = daily?.has_data ?? false;
-  const active = showDaily ? daily : monthly;
+  const [tab, setTab] = useState<"daily" | "monthly">("daily");
 
-  // Nothing to show if neither period has data and monthly hasn't loaded
   if (!monthly && !daily) return null;
-  if (active && !active.has_data) {
-    return (
-      <section className="card card-violet rounded-xl p-5">
-        <h2 className="section-title">Movers</h2>
-        <p className="section-sub mb-3">Best and worst performers (crypto & mutual funds)</p>
-        <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-          {daily && !daily.has_data && !showDaily
-            ? "Daily data updates at midnight. Check back tomorrow for today's movers."
-            : "No performance data yet. Add crypto or mutual fund holdings and refresh prices."}
-        </p>
-      </section>
-    );
-  }
-  if (!active) return null;
 
-  const heading = active.period === "daily" ? "Today's Movers" : "This Month's Movers";
-  const subtitle = active.period === "daily"
+  const active  = tab === "daily" ? daily : monthly;
+  const hasData = active?.has_data ?? false;
+
+  const subtitle = tab === "daily"
     ? "Change since yesterday's close · crypto & mutual funds"
-    : `${active.period_label} · since the 1st · crypto & mutual funds`;
+    : `${monthly?.period_label ?? ""} · since the 1st · crypto & mutual funds`;
+
+  const noDataMsg = tab === "daily"
+    ? "Daily data updates overnight. Check back tomorrow for today's movers."
+    : "No monthly data yet. Add crypto or mutual fund holdings and refresh prices.";
 
   return (
     <section className="card card-violet rounded-xl p-5">
-      <div className="mb-4">
-        <h2 className="section-title">{heading}</h2>
-        <p className="section-sub">{subtitle}</p>
-      </div>
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+      <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.15em] text-emerald-400/80">Top performers</p>
-          {active.top.length > 0
-            ? active.top.map((e) => <MoverRow key={e.asset_id} name={e.asset_name} pct={e.pct_change} />)
-            : <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>—</p>}
+          <h2 className="section-title">Movers</h2>
+          <p className="section-sub">{subtitle}</p>
         </div>
-        <div>
-          <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.15em] text-red-400/80">Worst performers</p>
-          {active.bottom.length > 0
-            ? active.bottom.map((e) => <MoverRow key={e.asset_id} name={e.asset_name} pct={e.pct_change} />)
-            : <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>—</p>}
+        <div className="flex shrink-0 overflow-hidden rounded-lg"
+          style={{ border: "1px solid var(--border-subtle)" }}>
+          {(["daily", "monthly"] as const).map((t, i) => (
+            <button key={t} type="button" onClick={() => setTab(t)}
+              className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide transition-colors"
+              style={{
+                background: tab === t ? "rgba(167,139,250,0.18)" : "transparent",
+                color: tab === t ? "#c4b5fd" : "var(--text-muted)",
+                borderLeft: i > 0 ? "1px solid var(--border-subtle)" : undefined,
+              }}>
+              {t === "daily" ? "Today" : "Month"}
+            </button>
+          ))}
         </div>
       </div>
+
+      {!hasData ? (
+        <p className="text-xs" style={{ color: "var(--text-muted)" }}>{noDataMsg}</p>
+      ) : (
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <div>
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.15em] text-emerald-400/80">Top performers</p>
+            {active!.top.length > 0
+              ? active!.top.map((e) => <MoverRow key={e.asset_id} name={e.asset_name} pct={e.pct_change} />)
+              : <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>—</p>}
+          </div>
+          <div>
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.15em] text-red-400/80">Worst performers</p>
+            {active!.bottom.length > 0
+              ? active!.bottom.map((e) => <MoverRow key={e.asset_id} name={e.asset_name} pct={e.pct_change} />)
+              : <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>—</p>}
+          </div>
+        </div>
+      )}
     </section>
   );
 }
