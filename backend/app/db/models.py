@@ -61,6 +61,7 @@ class ValuationHistory(Base):
     invested_amount = mapped_column(Numeric(18, 2), nullable=False)
     current_value = mapped_column(Numeric(18, 2), nullable=False)
     pnl = mapped_column(Numeric(18, 2), nullable=False)
+    price_per_unit = mapped_column(Numeric(18, 6), nullable=True)
     source: Mapped[str] = mapped_column(String, nullable=False)
 
 

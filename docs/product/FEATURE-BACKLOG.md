@@ -251,3 +251,4 @@ CANCELLED (X1)    Portfolio health score
 | 2026-06-07 | Best/worst performer — included in Stage 5 (user overrode Tier 3 verdict) | CEO |
 | 2026-06-07 | CSV import — added before XIRR to maximise day-1 XIRR value | PM + Engineer + CTO |
 | 2026-06-07 | Manual asset: simple version only (name + price) — ESOPs/real estate separate | PM + Engineer |
+| 2026-06-08 | Stage 4 (F7 Concentration Alerts + F8 Liquidity Analysis) — skipped, moving directly to Stage 5 | CEO |
