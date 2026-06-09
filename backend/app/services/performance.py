@@ -15,7 +15,7 @@ Daily (F10): today's vs yesterday's valuation_history row per asset.
 import uuid
 from dataclasses import dataclass
 from datetime import date, timedelta
-from typing import Optional
+from typing import Optional, Tuple
 
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -77,12 +77,20 @@ async def _fetch_valuations_for_dates(
     session: AsyncSession,
     user_id: uuid.UUID,
     target_dates: set[date],
-) -> dict[tuple[str, date], float]:
-    """Return {(asset_id_str, date): current_value} for given dates."""
+) -> dict[tuple[str, date], tuple[float, Optional[float]]]:
+    """Return {(asset_id_str, date): (current_value, price_per_unit)} for given dates.
+
+    price_per_unit is None for rows written before the column was added.
+    """
     if not target_dates:
         return {}
     result = await session.execute(
-        select(ValuationHistory.asset_id, ValuationHistory.valuation_date, ValuationHistory.current_value)
+        select(
+            ValuationHistory.asset_id,
+            ValuationHistory.valuation_date,
+            ValuationHistory.current_value,
+            ValuationHistory.price_per_unit,
+        )
         .join(Asset, Asset.id == ValuationHistory.asset_id)
         .where(
             and_(
@@ -93,7 +101,10 @@ async def _fetch_valuations_for_dates(
         )
     )
     return {
-        (str(row[0]), row[1]): float(row[2])
+        (str(row[0]), row[1]): (
+            float(row[2]),
+            float(row[3]) if row[3] is not None else None,
+        )
         for row in result.all()
     }
 
@@ -155,14 +166,25 @@ async def monthly_performance(session: AsyncSession, user_id: uuid.UUID) -> dict
         if first_dt == last_dt:
             continue   # only one data point this month — skip
 
-        start_val = val_map.get((aid, first_dt))
-        end_val   = val_map.get((aid, last_dt))
-        if not start_val or not end_val or start_val == 0:
+        start_row = val_map.get((aid, first_dt))
+        end_row   = val_map.get((aid, last_dt))
+        if not start_row or not end_row:
+            continue
+
+        start_cv, start_ppu = start_row
+        end_cv,   end_ppu   = end_row
+
+        # Prefer price_per_unit (pure market return, unaffected by position size changes).
+        # Fall back to current_value for rows written before the column was added.
+        if start_ppu is not None and end_ppu is not None and start_ppu != 0:
+            pct = (end_ppu - start_ppu) / start_ppu * 100
+        elif start_cv and end_cv and start_cv != 0:
+            pct = (end_cv - start_cv) / start_cv * 100
+        else:
             continue
 
         name, atype = asset_meta.get(aid, ("Unknown", "CRYPTO"))
-        pct = (end_val - start_val) / start_val * 100
-        entries.append(PerformanceEntry(aid, name, atype, pct, start_val, end_val))
+        entries.append(PerformanceEntry(aid, name, atype, pct, start_cv, end_cv))
 
     top, bottom = _rank(entries)
     return {
@@ -192,6 +214,7 @@ async def daily_performance(session: AsyncSession, user_id: uuid.UUID) -> dict:
     yest_assets  = {aid for (aid, d) in val_map if d == yesterday}
     both_days    = today_assets & yest_assets
 
+
     if not both_days:
         return {
             "top": [], "bottom": [], "has_data": False,
@@ -215,14 +238,25 @@ async def daily_performance(session: AsyncSession, user_id: uuid.UUID) -> dict:
     for aid in both_days:
         if aid not in asset_meta:
             continue
-        yest_val  = val_map.get((aid, yesterday), 0)
-        today_val = val_map.get((aid, today), 0)
-        if yest_val == 0:
+        yest_row  = val_map.get((aid, yesterday))
+        today_row = val_map.get((aid, today))
+        if not yest_row or not today_row:
+            continue
+
+        yest_cv,  yest_ppu  = yest_row
+        today_cv, today_ppu = today_row
+
+        # Prefer price_per_unit (pure market return, unaffected by position size changes).
+        # Fall back to current_value for rows written before the column was added.
+        if yest_ppu is not None and today_ppu is not None and yest_ppu != 0:
+            pct = (today_ppu - yest_ppu) / yest_ppu * 100
+        elif yest_cv and today_cv and yest_cv != 0:
+            pct = (today_cv - yest_cv) / yest_cv * 100
+        else:
             continue
 
         name, atype = asset_meta[aid]
-        pct = (today_val - yest_val) / yest_val * 100
-        entries.append(PerformanceEntry(aid, name, atype, pct, yest_val, today_val))
+        entries.append(PerformanceEntry(aid, name, atype, pct, yest_cv, today_cv))
 
     top, bottom = _rank(entries)
     return {
