@@ -36,15 +36,20 @@ async def clean_db(admin_engine):
     yield
 
 
-async def _seed_valuation(conn, user_id, asset_id, val_date: date, invested: float, current: float):
+async def _seed_valuation(
+    conn, user_id, asset_id, val_date: date,
+    invested: float, current: float,
+    price_per_unit: float | None = None,
+):
     await conn.execute(
         sa.text(
             "INSERT INTO valuation_history "
-            "(id,user_id,asset_id,valuation_date,invested_amount,current_value,pnl,source) "
-            "VALUES (gen_random_uuid(),:uid,:aid,:dt,:inv,:cur,:pnl,'test')"
+            "(id,user_id,asset_id,valuation_date,invested_amount,current_value,pnl,price_per_unit,source) "
+            "VALUES (gen_random_uuid(),:uid,:aid,:dt,:inv,:cur,:pnl,:ppu,'test')"
         ),
         {"uid": str(user_id), "aid": str(asset_id), "dt": val_date,
-         "inv": invested, "cur": current, "pnl": current - invested},
+         "inv": invested, "cur": current, "pnl": current - invested,
+         "ppu": price_per_unit},
     )
 
 
@@ -71,12 +76,12 @@ async def test_monthly_performance_with_data(api, admin_engine):
         btc = await _seed_asset(conn, USER_A, "Bitcoin")
         eth = await _seed_asset(conn, USER_A, "Ethereum")
 
-        # BTC up 10% this month
-        await _seed_valuation(conn, USER_A, btc, month_start, 50_000, 50_000)
-        await _seed_valuation(conn, USER_A, btc, today,       50_000, 55_000)
-        # ETH down 5% this month
-        await _seed_valuation(conn, USER_A, eth, month_start, 20_000, 20_000)
-        await _seed_valuation(conn, USER_A, eth, today,       20_000, 19_000)
+        # BTC up 10% this month (price: 100 → 110)
+        await _seed_valuation(conn, USER_A, btc, month_start, 50_000, 50_000, price_per_unit=100.0)
+        await _seed_valuation(conn, USER_A, btc, today,       50_000, 55_000, price_per_unit=110.0)
+        # ETH down 5% this month (price: 200 → 190)
+        await _seed_valuation(conn, USER_A, eth, month_start, 20_000, 20_000, price_per_unit=200.0)
+        await _seed_valuation(conn, USER_A, eth, today,       20_000, 19_000, price_per_unit=190.0)
 
     resp = await api.as_user(USER_A).get("/performance/monthly")
     assert resp.status_code == 200, resp.text
@@ -110,12 +115,12 @@ async def test_daily_performance_with_data(api, admin_engine):
         btc = await _seed_asset(conn, USER_A, "Bitcoin")
         ppf = await _seed_asset(conn, USER_A, "PPFAS MF", "MUTUAL_FUND")
 
-        # BTC up 6% today
-        await _seed_valuation(conn, USER_A, btc, yesterday, 50_000, 50_000)
-        await _seed_valuation(conn, USER_A, btc, today,     50_000, 53_000)
-        # MF up 0.5% today
-        await _seed_valuation(conn, USER_A, ppf, yesterday, 10_000, 10_000)
-        await _seed_valuation(conn, USER_A, ppf, today,     10_000, 10_050)
+        # BTC up 6% today (price: 100 → 106)
+        await _seed_valuation(conn, USER_A, btc, yesterday, 50_000, 50_000, price_per_unit=100.0)
+        await _seed_valuation(conn, USER_A, btc, today,     50_000, 53_000, price_per_unit=106.0)
+        # MF up 0.5% today (NAV: 100 → 100.5)
+        await _seed_valuation(conn, USER_A, ppf, yesterday, 10_000, 10_000, price_per_unit=100.0)
+        await _seed_valuation(conn, USER_A, ppf, today,     10_000, 10_050, price_per_unit=100.5)
 
     resp = await api.as_user(USER_A).get("/performance/daily")
     assert resp.status_code == 200, resp.text
@@ -131,7 +136,7 @@ async def test_daily_performance_no_yesterday(api, admin_engine):
     today = date.today()
     async with admin_engine.begin() as conn:
         btc = await _seed_asset(conn, USER_A, "Bitcoin")
-        await _seed_valuation(conn, USER_A, btc, today, 50_000, 53_000)
+        await _seed_valuation(conn, USER_A, btc, today, 50_000, 53_000, price_per_unit=106.0)
 
     resp = await api.as_user(USER_A).get("/performance/daily")
     assert resp.status_code == 200
@@ -180,8 +185,8 @@ async def test_performance_cross_user_isolation(api, admin_engine):
 
     async with admin_engine.begin() as conn:
         btc = await _seed_asset(conn, USER_A, "Bitcoin")
-        await _seed_valuation(conn, USER_A, btc, month_start, 50_000, 50_000)
-        await _seed_valuation(conn, USER_A, btc, today,       50_000, 55_000)
+        await _seed_valuation(conn, USER_A, btc, month_start, 50_000, 50_000, price_per_unit=100.0)
+        await _seed_valuation(conn, USER_A, btc, today,       50_000, 55_000, price_per_unit=110.0)
 
     resp = await api.as_user(USER_B).get("/performance/monthly")
     assert resp.status_code == 200
@@ -197,8 +202,8 @@ async def test_monthly_response_shape(api, admin_engine):
 
     async with admin_engine.begin() as conn:
         btc = await _seed_asset(conn, USER_A, "Bitcoin")
-        await _seed_valuation(conn, USER_A, btc, month_start, 50_000, 50_000)
-        await _seed_valuation(conn, USER_A, btc, today,       50_000, 55_000)
+        await _seed_valuation(conn, USER_A, btc, month_start, 50_000, 50_000, price_per_unit=100.0)
+        await _seed_valuation(conn, USER_A, btc, today,       50_000, 55_000, price_per_unit=110.0)
 
     resp = await api.as_user(USER_A).get("/performance/monthly")
     assert resp.status_code == 200
@@ -214,3 +219,87 @@ async def test_monthly_response_shape(api, admin_engine):
         entry = data["top"][0]
         for field in ("asset_id", "asset_name", "asset_type", "pct_change", "start_value", "end_value"):
             assert field in entry
+
+
+async def test_daily_capital_addition_uses_price_per_unit(api, admin_engine):
+    """R1 — Capital added between yesterday and today must not inflate pct_change.
+
+    Scenario: user doubled their BTC position overnight (invested jumps from
+    50k to 100k). BTC price only moved +5%. Without price_per_unit the ratio
+    of current_values would show ~110% (capital + price), not the real 5%.
+    """
+    today     = date.today()
+    yesterday = today - timedelta(days=1)
+
+    async with admin_engine.begin() as conn:
+        btc = await _seed_asset(conn, USER_A, "Bitcoin")
+
+        # Yesterday: 1 BTC @ price 50_000
+        await _seed_valuation(
+            conn, USER_A, btc, yesterday,
+            invested=50_000, current=50_000, price_per_unit=50_000.0,
+        )
+        # Today: 2 BTC @ price 52_500 (price up 5%; user also doubled position)
+        await _seed_valuation(
+            conn, USER_A, btc, today,
+            invested=100_000, current=105_000, price_per_unit=52_500.0,
+        )
+
+    resp = await api.as_user(USER_A).get("/performance/daily")
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["has_data"] is True
+    top_entry = data["top"][0]
+    assert top_entry["asset_name"] == "Bitcoin"
+    # Must reflect the 5% price move, NOT the ~110% holding-value change
+    assert abs(top_entry["pct_change"] - 5.0) < 0.01
+
+
+async def test_monthly_capital_addition_uses_price_per_unit(api, admin_engine):
+    """R2 — Capital added mid-month must not inflate monthly pct_change."""
+    today      = date.today()
+    month_start = today.replace(day=1)
+    if month_start == today:
+        pytest.skip("Skipping: test requires at least 2 different days in the month")
+
+    async with admin_engine.begin() as conn:
+        btc = await _seed_asset(conn, USER_A, "Bitcoin")
+
+        # Month start: 1 BTC @ price 40_000
+        await _seed_valuation(
+            conn, USER_A, btc, month_start,
+            invested=40_000, current=40_000, price_per_unit=40_000.0,
+        )
+        # Today: 2 BTC @ price 42_000 (price up 5%; user also doubled position)
+        await _seed_valuation(
+            conn, USER_A, btc, today,
+            invested=80_000, current=84_000, price_per_unit=42_000.0,
+        )
+
+    resp = await api.as_user(USER_A).get("/performance/monthly")
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["has_data"] is True
+    top_entry = data["top"][0]
+    # Must reflect the 5% price move, NOT the ~110% holding-value change
+    assert abs(top_entry["pct_change"] - 5.0) < 0.01
+
+
+async def test_daily_fallback_to_current_value_when_no_price_per_unit(api, admin_engine):
+    """R3 — Pre-migration rows (price_per_unit NULL) fall back to current_value comparison."""
+    today     = date.today()
+    yesterday = today - timedelta(days=1)
+
+    async with admin_engine.begin() as conn:
+        btc = await _seed_asset(conn, USER_A, "Bitcoin")
+
+        # Both rows without price_per_unit (simulates pre-migration data)
+        await _seed_valuation(conn, USER_A, btc, yesterday, 50_000, 50_000, price_per_unit=None)
+        await _seed_valuation(conn, USER_A, btc, today,     50_000, 53_000, price_per_unit=None)
+
+    resp = await api.as_user(USER_A).get("/performance/daily")
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["has_data"] is True
+    # Falls back to current_value: (53000 - 50000) / 50000 * 100 = 6.0%
+    assert abs(data["top"][0]["pct_change"] - 6.0) < 0.01
