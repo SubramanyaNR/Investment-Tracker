@@ -60,10 +60,14 @@ Requires HTTPS (depends on #1).
 - Payment webhook → user plan stored in DB
 
 ### 5. Test suite
-Zero automated coverage on financial logic is a launch risk.
+Unit and integration test coverage substantially established in Stage 3/5. Remaining gap is targeted.
 
-- Unit tests: P&L, compound interest (FD/RD/PPF), XIRR, MF return, `price_per_unit` backfill logic
-- API integration tests with a test database (pattern established in Stage 3/5 tests)
+**Done (90 tests passing):**
+- Unit: `compound_value()` FD/PPF (7), `rd_current_value()`/`_rd_months_elapsed()` RD (6), XIRR Newton-Raphson (14), `_rank()` (7)
+- Integration: performance API incl. capital-add regression (18), XIRR API, asset merge, CSV import
+
+**Remaining:**
+- Integration tests for `recalculate_crypto_valuations()` and `recalculate_mf_valuations()` (live-price paths require mocking CoinGecko/MFAPI)
 - Post-deploy smoke test script
 
 ### 6. UX / analytics polish (post-launch)
