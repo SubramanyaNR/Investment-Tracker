@@ -86,7 +86,7 @@ Browser opens `http://172.23.80.6:3000` (the VM's IP). The frontend calls **same
 
 ## Known issues / tech debt
 1. Auth + multi-tenancy done; M2 fully resolved (A5, A9); M4 (token revocation) accepted Free-plan limitation — revisit on Pro. See `docs/runbooks/SECURITY-AUDIT.md`.
-2. No tests on financial calcs (P&L, compound interest, XIRR, MF returns) — Stage 3/5 established the integration test pattern; financial unit tests remain.
+2. Financial unit tests exist and pass: `compound_value()` (7), `rd_current_value()`/`_rd_months_elapsed()` (6), XIRR Newton-Raphson (14), `_rank()` (7). Integration tests cover performance API (18 tests, incl. capital-add regression R1–R3). Remaining gap: integration tests for `recalculate_crypto_valuations()` and `recalculate_mf_valuations()` (live-price recalculate paths). RD A4 correctness gap (per-installment vs bulk interest) is documented and locked in `test_rd_valuation.py`.
 3. No "last updated" timestamp on prices (deferred to post-VPS).
 4. Google OAuth deferred until VPS + real domain (Supabase provider not yet enabled).
 5. gate.sh false-positive: substring-matches "alembic upgrade"/"make migrate" in commit messages (low-pri).
