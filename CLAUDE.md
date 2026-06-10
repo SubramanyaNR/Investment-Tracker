@@ -86,8 +86,10 @@ Browser opens `http://172.23.80.6:3000` (the VM's IP). The frontend calls **same
 
 ## Known issues / tech debt
 1. Auth + multi-tenancy done; M2 fully resolved (A5, A9); M4 (token revocation) accepted Free-plan limitation — revisit on Pro. See `docs/runbooks/SECURITY-AUDIT.md`.
-2. No tests — zero coverage; financial calcs must be tested before real money.
+2. Financial unit tests exist and pass: `compound_value()` (7), `rd_current_value()`/`_rd_months_elapsed()` (6), XIRR Newton-Raphson (14), `_rank()` (7). Integration tests cover performance API (18 tests, incl. capital-add regression R1–R3). Remaining gap: integration tests for `recalculate_crypto_valuations()` and `recalculate_mf_valuations()` (live-price recalculate paths). RD A4 correctness gap (per-installment vs bulk interest) is documented and locked in `test_rd_valuation.py`.
 3. No "last updated" timestamp on prices (deferred to post-VPS).
+4. Google OAuth deferred until VPS + real domain (Supabase provider not yet enabled).
+5. gate.sh false-positive: substring-matches "alembic upgrade"/"make migrate" in commit messages (low-pri).
 
 Schema is Alembic-managed (no `create_all`) — a fresh deploy must run `alembic upgrade head`, and `app_user` must be provisioned once (`docs/runbooks/DEPLOY.md`).
 
@@ -196,3 +198,13 @@ Continuous improvement should focus on:
 * Testability
 
 without altering approved product direction.
+
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+Rules:
+- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
