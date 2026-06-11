@@ -186,7 +186,21 @@ Gemini acts as the implementation specialist.
 
 Qwen acts as the QA specialist.
 
-Claude must respect model ownership and execute workflow stages through the AI-SDLC framework.
+Model ownership is mandatory.
+
+If a model assigned to a workflow stage is unavailable, misconfigured, returns an execution error, or produces only placeholder output, the workflow must stop.
+
+Claude must not substitute itself for the assigned model.
+
+Claude must report the failure and wait for CEO direction.
+
+Possible CEO actions include:
+- Fix the model integration
+- Remap the stage to another model
+- Perform manual validation
+- Explicitly waive the stage
+
+Claude may recommend options but may not choose one autonomously.
 
 ### Artifacts
 
