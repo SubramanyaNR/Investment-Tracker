@@ -1,0 +1,5 @@
+stages:
+  - triage
+  - fix
+  - validation
+  - rca
