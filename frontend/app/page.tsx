@@ -395,9 +395,9 @@ export default function DashboardPage() {
           </div>
 
           {/* Right controls */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {lastRefreshed && (
-              <p className="hidden text-[11px] sm:block" style={{ color: "var(--text-muted)" }}>
+              <p className="hidden text-[11px] md:block" style={{ color: "var(--text-muted)" }}>
                 Updated {lastRefreshed.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
               </p>
             )}
@@ -407,11 +407,14 @@ export default function DashboardPage() {
                 <path d="M14 8A6 6 0 1 1 8 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                 <path d="M13.5 2v3.5H10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-              {refreshing ? "Refreshing…" : "Refresh"}
+              <span className="hidden sm:inline">{refreshing ? "Refreshing…" : "Refresh"}</span>
             </button>
             <ThemeSwitcher />
             <button type="button" onClick={signOut} className="btn-refresh" aria-label="Sign out">
-              Sign out
+              <span className="hidden sm:inline">Sign out</span>
+              <svg className="h-3 w-3 sm:hidden" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 3H13V13H9M6 11L9 8L6 5M9 8H2" />
+              </svg>
             </button>
           </div>
 
