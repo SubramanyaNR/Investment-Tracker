@@ -1,0 +1,8 @@
+stages:
+  - planning
+  - approval
+  - implementation
+  - qa
+  - manual_validation
+  - audit
+  - release_approval
