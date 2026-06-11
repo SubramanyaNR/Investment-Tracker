@@ -1,0 +1,10 @@
+workflow: feature
+id: feature-002
+stage: release_approval
+status: completed
+approved: true
+created_at: '2026-06-11T16:17:37.687021'
+model_planning: claude
+model_implementation: gemini
+model_qa: qwen
+model_audit: claude
