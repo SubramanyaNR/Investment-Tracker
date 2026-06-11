@@ -1,3 +1,4 @@
-primary: unset
-review: unset
-local: unset
+planning: claude
+implementation: gemini
+qa: qwen
+audit: claude

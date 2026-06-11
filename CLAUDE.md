@@ -1,104 +1,289 @@
 # WealthSignal (Investment Tracker)
 
-Personal multi-asset portfolio tracker (crypto, mutual funds, FD/RD/PPF/savings) for Indian retail
-investors. **Portfolio observability** — net worth, P&L, allocation unified across platforms.
-**Not** a trading / brokerage / expense / budgeting / banking app. FastAPI + Next.js + Postgres.
+Personal multi-asset portfolio tracker for Indian retail investors.
 
-## Doc routing — load only what the task needs
-`CLAUDE.md` is the always-loaded layer; everything else is on-demand. Pick from `docs/INDEX.md`:
-- New feature / any change → `docs/operating-model/SDLC.md` (run `/feature` first)
-- What needs CEO approval → `docs/operating-model/GOVERNANCE.md`; review lenses → `ROLES.md`
-- The WHY + decisions → `docs/architecture/OVERVIEW.md`, `architecture/decisions/`
-- Schema → `architecture/DATA-MODEL.md` · API → `architecture/API.md` · auth → `architecture/AUTH.md`
-- Product → `product/VISION.md`, `product/PRINCIPLES.md`, `product/ROADMAP.md`
-- A shipped feature's behaviour → `features/<feature>.md`
-- Deploy / backup / incident / local dev / security → `runbooks/*`
+Supported assets:
 
-## How we work (operating model)
-One system reasons through seven lenses (PM, Investor Advisor, CTO, Architect, Eng Lead, QA,
-Security) and **stops at the CEO approval gate**. For any non-trivial change run **`/feature`**: it
-produces Product → Architecture → Security → Engineering → QA reviews, then **STOPS** — implement
-only after the CEO says "approved".
+* Crypto
+* Mutual Funds
+* FD
+* RD
+* PPF
+* Savings Accounts
 
-**Gated (approval required before Edit/Write/migrate):** architecture, data model/migrations, auth,
-security, product direction, infra, prod deploy. A `PreToolUse` hook enforces this on gated code
-paths. **Free lane (no gate):** docs, tests, copy polish within approved scope. Full rules:
-`docs/operating-model/GOVERNANCE.md`. Default to monolith-first; no microservices/K8s/CQRS/event-
-sourcing without written CTO+Architect sign-off.
+Primary goal:
 
-## Stack
-- **Backend** — FastAPI (Python 3.11), async SQLAlchemy 2.0 + asyncpg, Pydantic, HTTPX, APScheduler. Routers in `backend/app/api/`, business logic in `app/services/`, external API calls in `app/integrations/`, models in `app/db/models.py`. Auth in `app/core/auth.py`.
-- **Frontend** — Next.js 16 (App Router, all components `"use client"`), React 19, Tailwind 4, Recharts, Lucide. Every API call goes through `frontend/lib/api.ts`; response types live there too.
-- **DB** — Postgres 16. UUID PKs, `Numeric` for all money. Request path connects as least-privileged `app_user` (RLS); migrations/scheduler use the admin DSN.
-- **Migrations** — Alembic via `make migrate m="..."`.
+Portfolio observability.
 
-> Note: this Next.js (16.x) has breaking changes vs older versions — see `frontend/AGENTS.md`; check `node_modules/next/dist/docs/` before writing Next code.
+Users should understand:
 
-## Run — use `make`, never raw nohup/pkill
-- `make dev` — postgres + backend (127.0.0.1:8000) + frontend prod build (:3000)
-- `make restart` · `make stop` · `make build` · `make logs` · `make validate`
-- `make migrate m="describe change"` — alembic autogenerate → upgrade → show current (gated)
-- Logs: `/tmp/it-backend.log`, `/tmp/it-frontend.log`. Validate against a **prod build**, not `npm run dev`. Full table: `docs/runbooks/LOCAL-DEV.md`.
+* Net worth
+* P&L
+* Asset allocation
+* Portfolio performance
 
-## How the app is accessed
-Browser opens `http://172.23.80.6:3000` (the VM's IP). The frontend calls **same-origin `/api`**, which `frontend/next.config.ts` `rewrites()` proxies to `http://127.0.0.1:8000`. **Never** set `NEXT_PUBLIC_API_BASE_URL` to `localhost:8000` or a hardcoded IP — keep it `/api`. Symptom of breaking this: "Failed to load dashboard data" + empty crypto/MF search.
+across all investment platforms from a single interface.
 
-## Data model (full: `docs/architecture/DATA-MODEL.md`)
-`assets` (UUID PK) + one 1:1 holding table per type: `crypto_holdings`, `mutual_fund_holdings`, `fixed_income_holdings`; plus `transactions`, `valuation_history`, `portfolio_snapshots`, `ai_insights`. `asset_type ∈ CRYPTO | MUTUAL_FUND | FD | RD | PPF | SAVINGS_ACC`. All asset-linked tables **CASCADE DELETE** from `assets`. Every user-owned row has `user_id` (NOT NULL); every query filters by the JWT `sub` (`docs/architecture/AUTH.md`).
+WealthSignal is NOT:
 
-## Critical gotchas
-- **POST /assets merges by `scheme_code` (MF) / `coingecko_id` (crypto)** — it averages into the existing holding and returns that asset; it does NOT create a separate one. Never reuse a real asset's scheme/coin for throwaway test data on the live DB — it mutates the real asset, and a later delete cascades real data away. (Scoped per user.)
-- **No DB backups run automatically** (`make backup` is manual). Destructive DB ops are irreversible — capture state first; load the `safe-db-op` skill.
-- Don't test against the live DB with real identifiers. Use unique names + unheld scheme/coin, or a scratch DB.
-- MF valuation `invested = units × nav_at_purchase` (can differ slightly from rupees actually contributed).
-- RD invested grows monthly (`principal × months_elapsed`); FD invests full principal day 1.
-- MF NAV auto-fetched on fund select to avoid phantom day-1 P&L.
-- AI insights: Gemini with a rule-based fallback; the Gemini call is wrapped so failures fall back instead of returning 500.
-- **Never trust a client-supplied `user_id`** — identity comes only from the verified JWT `sub`; ownership checks return 404 (not 403) for another user's row.
+* A trading platform
+* A brokerage
+* A budgeting application
+* An expense tracker
+* A banking application
 
-## Coding rules
+Technology:
 
-### General
-- Don't add features beyond what's asked. No "while I'm here" refactors.
-- Comments only for non-obvious WHY, never to describe what code does.
-- Don't create markdown docs unless asked. No backwards-compat shims — delete removed code fully.
+* FastAPI
+* Next.js
+* PostgreSQL
 
-### Backend
-- All DB ops async (`await session.execute(...)`); asyncpg only, never sync drivers.
-- New endpoints → existing router in `app/api/`; logic → `app/services/`; external calls → `app/integrations/`.
-- `Numeric` (never `Float`) for financial values.
-- Every query on a user-owned table filters by `user_id` (RLS is a backstop, not a license to skip it).
-- New/changed column → `make migrate m="..."`. Never `create_all` for schema changes in prod.
+---
 
-### Frontend
-- All components `"use client"`. API calls only via `frontend/lib/api.ts`.
-- INR formatting: `₹` with Indian comma grouping (₹1,23,456).
-- Theme: CSS custom props in `globals.css`, `[data-theme="dark"|"light"]` only.
-- No emojis in UI unless requested. Response types defined in `lib/api.ts`.
+# Documentation Routing
 
-### Database / infra
-- UUID PKs, `Numeric` money, CASCADE DELETE from `assets`.
-- Never delete or edit existing migration files — new change = new migration.
-- Never commit `.env`, `.venv/`, `__pycache__/`, `.pyc`, or `.claude/state/`. Secrets live in gitignored `.env` (list: `docs/runbooks/LOCAL-DEV.md`).
+CLAUDE.md is the always-loaded layer.
 
-## Branch strategy
-`master` = stable/deployable. Prefer a feature branch + PR; push to `master` only when the CEO explicitly asks.
+Load detailed documentation only when required.
 
-## Known issues / tech debt
-1. Auth + multi-tenancy done; M2 fully resolved (A5, A9); M4 (token revocation) accepted Free-plan limitation — revisit on Pro. See `docs/runbooks/SECURITY-AUDIT.md`.
-2. Financial unit tests exist and pass: `compound_value()` (7), `rd_current_value()`/`_rd_months_elapsed()` (6), XIRR Newton-Raphson (14), `_rank()` (7). Integration tests cover performance API (18 tests, incl. capital-add regression R1–R3). Remaining gap: integration tests for `recalculate_crypto_valuations()` and `recalculate_mf_valuations()` (live-price recalculate paths). RD A4 correctness gap (per-installment vs bulk interest) is documented and locked in `test_rd_valuation.py`.
-3. No "last updated" timestamp on prices (deferred to post-VPS).
-4. Google OAuth deferred until VPS + real domain (Supabase provider not yet enabled).
-5. gate.sh false-positive: substring-matches "alembic upgrade"/"make migrate" in commit messages (low-pri).
+Primary index:
 
-Schema is Alembic-managed (no `create_all`) — a fresh deploy must run `alembic upgrade head`, and `app_user` must be provisioned once (`docs/runbooks/DEPLOY.md`).
+docs/INDEX.md
 
-## External services
-CoinGecko (free, 30 req/min), MFAPI (free), Google Gemini (free tier), Supabase Auth. Full table + hosting/roadmap in `docs/product/VISION.md`.
+Common routes:
 
-----
+## Product
 
-## Engineering Behaviour
+* docs/product/VISION.md
+* docs/product/PRINCIPLES.md
+* docs/product/ROADMAP.md
+
+## Architecture
+
+* docs/architecture/OVERVIEW.md
+* docs/architecture/DATA-MODEL.md
+* docs/architecture/API.md
+* docs/architecture/AUTH.md
+* docs/architecture/decisions/
+
+## Operating Model
+
+* docs/operating-model/SDLC.md
+* docs/operating-model/GOVERNANCE.md
+* docs/operating-model/ROLES.md
+
+## Runbooks
+
+* docs/runbooks/LOCAL-DEV.md
+* docs/runbooks/DEPLOY.md
+* docs/runbooks/BACKUP.md
+* docs/runbooks/INCIDENT.md
+* docs/runbooks/SECURITY-AUDIT.md
+
+## Features
+
+* docs/features/<feature>.md
+
+Load only the documentation required for the task.
+
+---
+
+# Operating Model
+
+One reasoning system operates through multiple review lenses:
+
+* Product Manager
+* Investor Advisor
+* CTO
+* Architect
+* Engineering Lead
+* QA Lead
+* Security Reviewer
+
+Claude should evaluate work through all relevant lenses.
+
+Claude may reason and review.
+
+Claude may not bypass approval requirements.
+
+---
+
+# AI-SDLC Orchestration
+
+AI-SDLC is the workflow engine.
+
+Claude Code is the primary interface.
+
+Users should interact directly with Claude.
+
+Supported workflow types:
+
+* feature
+* discuss
+* architecture
+* security
+* release
+* incident
+
+Supported commands:
+
+* /feature
+* /approve
+* /status
+* /architecture
+* /security
+* /discuss
+* /release
+* /incident
+
+## Workflow Request Handling
+
+When a workflow command is encountered:
+
+Treat all content following the command as the workflow request body.
+
+The request body may contain:
+
+* Context
+* Goals
+* Constraints
+* Requirements
+* Acceptance Criteria
+* Questions
+* Links
+* Screenshots
+* Notes
+
+Preserve the request body in its entirety.
+
+Do not summarize before storing.
+
+Do not discard context.
+
+Do not assume requests are short titles.
+
+## Workflow Discovery
+
+Before executing workflow actions:
+
+Determine the active workflow.
+
+Inspect:
+
+.ai-sdlc/artifacts/
+
+and relevant:
+
+status.yaml
+
+artifacts when required.
+
+If only one active workflow exists, infer it automatically.
+
+Only ask for workflow identifiers when ambiguity exists.
+
+## Workflow Creation
+
+When a workflow starts:
+
+1. Create workflow.
+2. Store request.
+3. Execute first stage.
+4. Read generated artifact.
+5. Present summary.
+6. Await approval.
+
+## Approval Handling
+
+When user says:
+
+approve
+
+Claude should:
+
+1. Identify active workflow.
+2. Approve current stage.
+3. Advance workflow.
+4. Execute next stage.
+5. Read artifact.
+6. Present summary.
+7. Await approval.
+
+## Status Handling
+
+When user requests status:
+
+Present:
+
+* Workflow ID
+* Workflow Type
+* Current Stage
+* Approval State
+* Overall Status
+
+Use a concise format.
+
+---
+
+# Model Responsibilities
+
+Model routing is defined in:
+
+.ai-sdlc/models.yaml
+
+Current ownership:
+
+Planning:
+Claude
+
+Implementation:
+Gemini
+
+QA:
+Qwen
+
+Audit:
+Claude
+
+Claude is the orchestrator.
+
+Gemini is the implementation specialist.
+
+Qwen is the QA specialist.
+
+Claude must respect model ownership.
+
+Claude must not replace Gemini or Qwen when ownership is assigned to them.
+
+Workflow execution must go through AI-SDLC routing and adapters.
+
+---
+
+# Governance
+
+CEO approval is mandatory before:
+
+* Architecture changes
+* Database schema changes
+* Migrations
+* Authentication changes
+* Security model changes
+* Product direction changes
+* Infrastructure changes
+* Production deployment
+* Roadmap changes
+
+Claude may review.
+
+Claude may recommend.
+
+Claude must stop at approval gates.
+
+Implementation may begin only after approval.
+
+---
+
+# Engineering Behaviour
 
 Before implementation:
 
@@ -112,18 +297,23 @@ When multiple valid approaches exist:
 
 * Present the recommended option.
 * Explain tradeoffs briefly.
-* Await CEO approval on gated decisions.
+* Await approval when required.
 
 Prefer clear reasoning over immediate implementation.
 
-## Change Discipline
+---
+
+# Change Discipline
 
 Make the smallest change that solves the approved problem.
 
+Rules:
+
 * Do not modify adjacent systems unless required.
-* Do not introduce abstractions without a demonstrated need.
-* Match existing code style and architecture.
-* Every changed file should directly support the approved objective.
+* Do not introduce abstractions without demonstrated need.
+* Match existing architecture.
+* Match existing coding style.
+* Keep changes tightly scoped.
 
 If unrelated issues are discovered:
 
@@ -131,28 +321,30 @@ If unrelated issues are discovered:
 * Report them.
 * Do not fix them without approval.
 
-## Validation Requirements
+---
+
+# Validation Requirements
 
 Implementation is not complete until validated.
 
-Every completed roadmap item should include:
+Every completed item should include:
 
 * What changed
 * What was tested
 * Validation results
 * Remaining risks
 
-Do not declare success based solely on code review.
+Never declare success from code inspection alone.
 
-Prefer:
+Preferred validation order:
 
 1. Automated tests
-2. Integration validation
+2. Integration testing
 3. Production-build verification
 
-when applicable.
+---
 
-## Continuous Improvement Policy
+# Continuous Improvement Policy
 
 Claude may continuously improve:
 
@@ -164,7 +356,7 @@ Claude may continuously improve:
 * Technical debt tracking
 * Lessons learned
 * ADR quality
-* Roadmap progress tracking
+* Roadmap tracking
 
 Claude may not autonomously change:
 
@@ -178,7 +370,7 @@ Claude may not autonomously change:
 * Hosting decisions
 * Roadmap priorities
 
-without explicit CEO approval.
+without CEO approval.
 
 After every completed roadmap item:
 
@@ -186,25 +378,106 @@ After every completed roadmap item:
 2. Update technical debt register.
 3. Update relevant documentation.
 4. Suggest process improvements.
-5. Report discovered risks and tradeoffs.
-6. Stop and await CEO approval before proceeding.
+5. Report risks and tradeoffs.
+6. Stop and await approval.
 
-Continuous improvement should focus on:
+---
 
-* Reliability
+# Technology Stack
+
+## Backend
+
+* Python 3.11
+* FastAPI
+* Async SQLAlchemy
+* asyncpg
+* Pydantic
+* HTTPX
+* APScheduler
+
+## Frontend
+
+* Next.js 16
+* React 19
+* Tailwind 4
+* Recharts
+* Lucide
+
+## Database
+
+* PostgreSQL 16
+
+Money values:
+
+* Numeric only
+* Never float
+
+---
+
+# Critical Project Rules
+
+## Authentication
+
+Never trust client supplied user_id.
+
+Identity comes only from verified JWT claims.
+
+All ownership checks must be enforced.
+
+## Database
+
+* UUID primary keys
+* Numeric for money
+* Alembic migrations only
+* Never use create_all for production schema changes
+
+## Frontend
+
+* API access through frontend/lib/api.ts
+* Maintain theme architecture
+* Preserve INR formatting standards
+
+## Backend
+
+* Async database operations only
+* Service layer owns business logic
+* Integration layer owns external API communication
+
+---
+
+# WealthSignal Review Standards
+
+Review all work through four lenses:
+
+## Product
+
+* User value
+* Simplicity
+* Business impact
+
+## Technical
+
 * Maintainability
-* Observability
-* Security
-* Testability
+* Scalability
+* Reliability
 
-without altering approved product direction.
+## Architecture
 
-## graphify
+* Consistency
+* Sustainability
+* Appropriate complexity
 
-This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+## Investor Experience
 
-Rules:
-- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
-- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
-- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
-- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+* Trustworthiness
+* Data accuracy
+* Accessibility
+* Performance
+* Minimal cognitive load
+
+Recommendations should prioritize:
+
+* Simplicity
+* Investor confidence
+* Maintainability
+* Long-term product quality

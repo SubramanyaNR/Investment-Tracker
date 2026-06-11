@@ -85,9 +85,10 @@ export default function NetWorthChart({ snapshots }: { snapshots: Snapshot[] }) 
               aria-pressed={range === option}
               className="min-h-8 min-w-10 px-2.5 py-1 text-[10px] font-semibold uppercase transition-colors sm:min-w-11 sm:px-3"
               style={{
-                background: range === option ? "rgba(245,158,11,0.18)" : "transparent",
-                color: range === option ? "#fcd34d" : "var(--text-muted)",
+                background: range === option ? "var(--input-focus-bg)" : "transparent",
+                color: range === option ? "var(--text-primary)" : "var(--text-muted)",
                 borderLeft: i > 0 ? "1px solid var(--border-subtle)" : undefined,
+                backgroundColor: range === option ? "rgba(245,158,11,0.15)" : undefined,
               }}>
               {option}
             </button>

@@ -1,0 +1,10 @@
+workflow: feature
+id: feature-001
+stage: implementation
+status: active
+approved: false
+created_at: '2026-06-11T14:39:03.533806'
+model_planning: claude
+model_implementation: gemini
+model_qa: qwen
+model_audit: claude

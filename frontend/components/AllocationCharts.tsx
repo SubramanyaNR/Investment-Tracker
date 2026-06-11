@@ -34,10 +34,10 @@ function PieTooltip({ active, payload }: {
   return (
     <div
       className="rounded-lg px-3 py-2 text-xs"
-      style={{ background: "#0e0e1a", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 8px 24px rgba(0,0,0,0.6)" }}
+      style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)", boxShadow: "var(--shadow-elevated)" }}
     >
       <p className="font-semibold" style={{ color: d.payload.color }}>{d.name}</p>
-      <p className="mt-0.5 text-slate-300">{fmt(d.value)}</p>
+      <p className="mt-0.5 text-slate-300" style={{ color: "var(--text-secondary)" }}>{fmt(d.value)}</p>
     </div>
   );
 }
@@ -79,7 +79,7 @@ function DonutChart({ data, title, total }: { data: PieEntry[]; title: string; t
         </ResponsiveContainer>
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <div className="text-center">
-            <p className="text-[13px] font-bold text-white">{fmt(total)}</p>
+            <p className="text-[13px] font-bold" style={{ color: "var(--text-primary)" }}>{fmt(total)}</p>
             <p className="text-[8px] text-slate-600 uppercase tracking-wider">total</p>
           </div>
         </div>
@@ -157,27 +157,23 @@ export default function AllocationCharts({
       className="grid grid-cols-1 gap-5 sm:grid-cols-2"
     >
       <div
-        className="rounded-xl p-5"
+        className="card rounded-xl p-5"
         style={{
           background: "linear-gradient(160deg, rgba(245,158,11,0.05) 0%, var(--bg-surface) 50%)",
-          border: "1px solid rgba(255,255,255,0.09)",
-          boxShadow: "0 1px 40px rgba(0,0,0,0.35)",
         }}
       >
-        <h2 className="text-sm font-semibold text-slate-200">Asset Allocation</h2>
+        <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Asset Allocation</h2>
         <p className="mb-4 mt-0.5 text-[11px] text-slate-600">Portfolio by asset class</p>
         <DonutChart data={typeData} title="by value" total={typeTotal} />
       </div>
 
       <div
-        className="rounded-xl p-5"
+        className="card rounded-xl p-5"
         style={{
           background: "linear-gradient(160deg, rgba(52,211,153,0.05) 0%, var(--bg-surface) 50%)",
-          border: "1px solid rgba(255,255,255,0.09)",
-          boxShadow: "0 1px 40px rgba(0,0,0,0.35)",
         }}
       >
-        <h2 className="text-sm font-semibold text-slate-200">Liquidity Split</h2>
+        <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Liquidity Split</h2>
         <p className="mb-4 mt-0.5 text-[11px] text-slate-600">Accessible vs locked capital</p>
         <DonutChart data={liquidityData} title="by value" total={liquidityTotal} />
       </div>
