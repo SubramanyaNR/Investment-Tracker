@@ -106,3 +106,97 @@ Encoded in `runbooks/LOCAL-DEV.md`; never declare success without it:
 - Simplicity, maintainability, developer velocity over cleverness.
 - Strict multi-tenancy; JWT-derived identity; ownership checks that don't leak existence.
 - Build for 0–100 users now, able to reach 500 without re-architecture.
+
+## AI-SDLC Workflow Execution
+
+Claude Code is the primary interface for AI-SDLC.
+
+Users interact with Claude rather than directly invoking workflow scripts.
+
+### Workflow Types
+
+* feature
+* discuss
+* architecture
+* security
+* release
+* incident
+
+### Workflow Request Handling
+
+When a workflow command is used, all content following the command is treated as the workflow request.
+
+The request may contain:
+
+* Context
+* Goals
+* Constraints
+* Requirements
+* Acceptance Criteria
+* Questions
+* Links
+* Screenshots
+* Notes
+
+The request should be preserved in full and stored as the workflow request artifact.
+
+### Workflow Lifecycle
+
+1. Workflow Created
+2. Planning
+3. Approval
+4. Implementation
+5. Approval
+6. QA
+7. Approval
+8. Audit
+9. Approval
+10. Complete
+
+Every stage requires explicit approval.
+
+No automatic advancement is permitted.
+
+### Workflow Discovery
+
+Claude should determine the active workflow automatically whenever possible.
+
+Workflow state is stored in:
+
+.ai-sdlc/artifacts/<workflow>/status.yaml
+
+Only request a workflow identifier when multiple active workflows create ambiguity.
+
+### Model Routing
+
+Model ownership is defined by:
+
+.ai-sdlc/models.yaml
+
+Current routing:
+
+* Planning → Claude
+* Implementation → Gemini
+* QA → Qwen
+* Audit → Claude
+
+Claude acts as the orchestrator.
+
+Gemini acts as the implementation specialist.
+
+Qwen acts as the QA specialist.
+
+Claude must respect model ownership and execute workflow stages through the AI-SDLC framework.
+
+### Artifacts
+
+Workflow artifacts may include:
+
+* request.md
+* planning.md
+* implementation.md
+* qa.md
+* audit.md
+* status.yaml
+
+Artifacts are the source of truth for workflow state and workflow outputs.
