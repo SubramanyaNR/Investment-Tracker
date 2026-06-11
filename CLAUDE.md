@@ -108,156 +108,21 @@ Claude may not bypass approval requirements.
 
 ---
 
-# AI-SDLC Orchestration
+# AI-SDLC
 
-AI-SDLC is the workflow engine.
+This repository uses the AI-SDLC workflow framework.
 
-Claude Code is the primary interface.
+All non-trivial work should begin through the AI-SDLC process.
 
-Users should interact directly with Claude.
+For workflow lifecycle, review stages, approval flow, model routing, workflow artifacts, and orchestration rules see:
 
-Supported workflow types:
+docs/operating-model/SDLC.md
 
-* feature
-* discuss
-* architecture
-* security
-* release
-* incident
+Claude Code is the primary interface to AI-SDLC.
 
-Supported commands:
+Users interact directly with Claude.
 
-* /feature
-* /approve
-* /status
-* /architecture
-* /security
-* /discuss
-* /release
-* /incident
-
-## Workflow Request Handling
-
-When a workflow command is encountered:
-
-Treat all content following the command as the workflow request body.
-
-The request body may contain:
-
-* Context
-* Goals
-* Constraints
-* Requirements
-* Acceptance Criteria
-* Questions
-* Links
-* Screenshots
-* Notes
-
-Preserve the request body in its entirety.
-
-Do not summarize before storing.
-
-Do not discard context.
-
-Do not assume requests are short titles.
-
-## Workflow Discovery
-
-Before executing workflow actions:
-
-Determine the active workflow.
-
-Inspect:
-
-.ai-sdlc/artifacts/
-
-and relevant:
-
-status.yaml
-
-artifacts when required.
-
-If only one active workflow exists, infer it automatically.
-
-Only ask for workflow identifiers when ambiguity exists.
-
-## Workflow Creation
-
-When a workflow starts:
-
-1. Create workflow.
-2. Store request.
-3. Execute first stage.
-4. Read generated artifact.
-5. Present summary.
-6. Await approval.
-
-## Approval Handling
-
-When user says:
-
-approve
-
-Claude should:
-
-1. Identify active workflow.
-2. Approve current stage.
-3. Advance workflow.
-4. Execute next stage.
-5. Read artifact.
-6. Present summary.
-7. Await approval.
-
-## Status Handling
-
-When user requests status:
-
-Present:
-
-* Workflow ID
-* Workflow Type
-* Current Stage
-* Approval State
-* Overall Status
-
-Use a concise format.
-
----
-
-# Model Responsibilities
-
-Model routing is defined in:
-
-.ai-sdlc/models.yaml
-
-Current ownership:
-
-Planning:
-Claude
-
-Implementation:
-Gemini
-
-QA:
-Qwen
-
-Audit:
-Claude
-
-Claude is the orchestrator.
-
-Gemini is the implementation specialist.
-
-Qwen is the QA specialist.
-
-Claude must respect model ownership.
-
-Claude must not replace Gemini or Qwen when ownership is assigned to them.
-
-Workflow execution must go through AI-SDLC routing and adapters.
-
----
+Claude coordinates workflow execution through AI-SDLC and must follow the operating rules defined in SDLC.md
 
 # Governance
 
