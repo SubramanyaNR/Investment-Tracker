@@ -1,0 +1,6 @@
+stages:
+  - planning
+  - approval
+  - implementation
+  - qa
+  - audit
