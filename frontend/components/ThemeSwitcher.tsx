@@ -5,6 +5,7 @@ import { useTheme } from "./ThemeProvider";
 const MODES = [
   { key: "dark"  as const, icon: "◐", label: "Dark mode"  },
   { key: "light" as const, icon: "○", label: "Light mode" },
+  { key: "mono"  as const, icon: "◉", label: "Mono mode"  },
 ];
 
 export default function ThemeSwitcher() {

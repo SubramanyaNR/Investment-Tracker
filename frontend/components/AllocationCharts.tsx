@@ -2,6 +2,7 @@
 
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import type { Asset, Valuation } from "@/lib/api";
+import { useTheme } from "./ThemeProvider";
 
 type PieEntry = { name: string; value: number; color: string };
 
@@ -42,17 +43,20 @@ function PieTooltip({ active, payload }: {
   );
 }
 
-function EmptyState({ title }: { title: string }) {
+function EmptyState({ title, theme }: { title: string; theme: string }) {
+  const gradient = theme === "mono" 
+    ? "conic-gradient(#ffffff 0%, #a3a3a3 33%, #737373 66%, #5c5c5c 100%)"
+    : "conic-gradient(#f59e0b 0%, #a78bfa 33%, #38bdf8 66%, #34d399 100%)";
   return (
     <div className="flex flex-col items-center justify-center py-10 text-center">
-      <div className="mb-3 h-16 w-16 rounded-full opacity-10" style={{ background: "conic-gradient(#f59e0b 0%, #a78bfa 33%, #38bdf8 66%, #34d399 100%)" }} />
+      <div className="mb-3 h-16 w-16 rounded-full opacity-10" style={{ background: gradient }} />
       <p className="text-xs text-slate-600">{title}</p>
     </div>
   );
 }
 
-function DonutChart({ data, title, total }: { data: PieEntry[]; title: string; total: number }) {
-  if (total === 0) return <EmptyState title="No data yet" />;
+function DonutChart({ data, title, total, theme }: { data: PieEntry[]; title: string; total: number; theme: string }) {
+  if (total === 0) return <EmptyState title="No data yet" theme={theme} />;
 
   return (
     <div>
@@ -113,17 +117,42 @@ export default function AllocationCharts({
   assets: Asset[];
   valuations: Record<string, Valuation>;
 }) {
+  const { theme } = useTheme();
+
+  const typeGroupColors: Record<string, string> = theme === "mono" 
+    ? {
+        CRYPTO: "#ffffff",
+        MUTUAL_FUND: "#a3a3a3",
+        FD: "#737373",
+        RD: "#737373",
+        PPF: "#737373",
+        SAVINGS_ACC: "#5c5c5c",
+      }
+    : {
+        CRYPTO: "#f59e0b",
+        MUTUAL_FUND: "#a78bfa",
+        FD: "#38bdf8",
+        RD: "#38bdf8",
+        PPF: "#38bdf8",
+        SAVINGS_ACC: "#34d399",
+      };
+
+  const liquidityColors: Record<string, string> = theme === "mono"
+    ? { LIQUID: "#ffffff", LOCKED: "#666666" }
+    : { LIQUID: "#34d399", LOCKED: "#f97316" };
+
   // Build asset-class pie data
   const typeMap = new Map<string, { label: string; color: string; value: number }>();
   for (const asset of assets) {
-    const grp = TYPE_GROUP[asset.asset_type];
+    const grpLabel = TYPE_GROUP[asset.asset_type]?.label;
+    const color = typeGroupColors[asset.asset_type];
     const val = valuations[asset.id]?.current_value ?? 0;
-    if (!grp || val === 0) continue;
-    const existing = typeMap.get(grp.label);
+    if (!grpLabel || val === 0) continue;
+    const existing = typeMap.get(grpLabel);
     if (existing) {
       existing.value += val;
     } else {
-      typeMap.set(grp.label, { label: grp.label, color: grp.color, value: val });
+      typeMap.set(grpLabel, { label: grpLabel, color, value: val });
     }
   }
   const typeData: PieEntry[] = Array.from(typeMap.values()).map((d) => ({
@@ -142,8 +171,8 @@ export default function AllocationCharts({
     liquidityMap[tier] += val;
   }
   const liquidityData: PieEntry[] = [
-    { name: "Liquid",   value: liquidityMap.LIQUID, color: LIQUIDITY_COLOR.LIQUID },
-    { name: "Locked",   value: liquidityMap.LOCKED, color: LIQUIDITY_COLOR.LOCKED },
+    { name: "Liquid",   value: liquidityMap.LIQUID, color: liquidityColors.LIQUID },
+    { name: "Locked",   value: liquidityMap.LOCKED, color: liquidityColors.LOCKED },
   ].filter((d) => d.value > 0);
   const liquidityTotal = liquidityData.reduce((s, d) => s + d.value, 0);
 
@@ -159,23 +188,27 @@ export default function AllocationCharts({
       <div
         className="card rounded-xl p-5"
         style={{
-          background: "linear-gradient(160deg, rgba(245,158,11,0.05) 0%, var(--bg-surface) 50%)",
+          background: theme === "mono"
+            ? "linear-gradient(160deg, rgba(255,255,255,0.03) 0%, var(--bg-surface) 50%)"
+            : "linear-gradient(160deg, rgba(245,158,11,0.05) 0%, var(--bg-surface) 50%)",
         }}
       >
         <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Asset Allocation</h2>
         <p className="mb-4 mt-0.5 text-[11px] text-slate-600">Portfolio by asset class</p>
-        <DonutChart data={typeData} title="by value" total={typeTotal} />
+        <DonutChart data={typeData} title="by value" total={typeTotal} theme={theme} />
       </div>
 
       <div
         className="card rounded-xl p-5"
         style={{
-          background: "linear-gradient(160deg, rgba(52,211,153,0.05) 0%, var(--bg-surface) 50%)",
+          background: theme === "mono"
+            ? "linear-gradient(160deg, rgba(255,255,255,0.03) 0%, var(--bg-surface) 50%)"
+            : "linear-gradient(160deg, rgba(52,211,153,0.05) 0%, var(--bg-surface) 50%)",
         }}
       >
         <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Liquidity Split</h2>
         <p className="mb-4 mt-0.5 text-[11px] text-slate-600">Accessible vs locked capital</p>
-        <DonutChart data={liquidityData} title="by value" total={liquidityTotal} />
+        <DonutChart data={liquidityData} title="by value" total={liquidityTotal} theme={theme} />
       </div>
     </section>
     {hasManualAssets && (
