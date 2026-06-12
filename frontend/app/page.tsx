@@ -4,10 +4,11 @@ import { useEffect, useState } from "react";
 import {
   createAsset, deleteAsset, getAssets, getDashboard, getLatestValuations,
   getSnapshots, getTransactions, getMfCurrentNav, getMarketFreshness, getXirr,
+  getMonthlyPerformance, getDailyPerformance,
   importCsvDryRun, importCsvConfirm,
   recalculateValuations, redeemMutualFund, sellCrypto, topUpSavings,
   type Asset, type CryptoMarket, type ImportConfirmResult, type ImportDryRunResult,
-  type ImportError, type MarketFreshness, type MutualFundScheme,
+  type ImportError, type MarketFreshness, type MutualFundScheme, type PerformanceResult,
   type Snapshot, type TxPage, type TxRecord, type Valuation, type XirrResult,
 } from "@/lib/api";
 import CryptoSelector    from "@/components/CryptoSelector";
@@ -83,6 +84,8 @@ export default function DashboardPage() {
   const [txTotal,      setTxTotal]      = useState(0);
   const [freshness,    setFreshness]    = useState<MarketFreshness | null>(null);
   const [xirr,         setXirr]         = useState<XirrResult | null>(null);
+  const [monthlyPerf,  setMonthlyPerf]  = useState<PerformanceResult | null>(null);
+  const [dailyPerf,    setDailyPerf]    = useState<PerformanceResult | null>(null);
 
   // ── Import state ──
   const [importFile,    setImportFile]    = useState<File | null>(null);
@@ -148,9 +151,11 @@ export default function DashboardPage() {
     setSnapshots(s);
     setTransactions(tx.items);
     setTxTotal(tx.total);
-    // Non-blocking: both are supplemental data that don't block the main dashboard.
+    // Non-blocking: supplemental data that doesn't block the main dashboard.
     getMarketFreshness().then(setFreshness).catch(() => {});
     getXirr().then(setXirr).catch(() => {});
+    getMonthlyPerformance().then(setMonthlyPerf).catch(() => {});
+    getDailyPerformance().then(setDailyPerf).catch(() => {});
   }
 
   useEffect(() => {
@@ -490,6 +495,7 @@ export default function DashboardPage() {
             <div className="p-5 space-y-5" role="tabpanel">
               <AllocationCharts assets={assets} valuations={valuations} />
               {snapshots.length > 0 && <NetWorthChart snapshots={snapshots} />}
+              <MoversSection monthly={monthlyPerf} daily={dailyPerf} />
               {snapshots.length === 0 && assets.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
                   <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-xl"
@@ -1123,6 +1129,79 @@ export default function DashboardPage() {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // SUB-COMPONENTS
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+function MoverRow({ name, pct }: { name: string; pct: number }) {
+  const up = pct >= 0;
+  return (
+    <div className="flex items-center justify-between gap-3 py-1">
+      <span className="truncate text-[11px]" style={{ color: "var(--text-secondary)" }}>{name}</span>
+      <span className={`shrink-0 text-[11px] font-semibold ${up ? "text-emerald-400" : "text-red-400"}`}>
+        {up ? "+" : ""}{pct.toFixed(1)}%
+      </span>
+    </div>
+  );
+}
+
+function MoversSection({ monthly, daily }: { monthly: PerformanceResult | null; daily: PerformanceResult | null }) {
+  const [tab, setTab] = useState<"daily" | "monthly">("daily");
+
+  if (!monthly && !daily) return null;
+
+  const active  = tab === "daily" ? daily : monthly;
+  const hasData = active?.has_data ?? false;
+
+  const subtitle = tab === "daily"
+    ? "Change since yesterday's close · crypto & mutual funds"
+    : `${monthly?.period_label ?? ""} · since the 1st · crypto & mutual funds`;
+
+  const noDataMsg = tab === "daily"
+    ? "Daily data updates overnight. Check back tomorrow for today's movers."
+    : "No monthly data yet. Add crypto or mutual fund holdings and refresh prices.";
+
+  return (
+    <section className="card card-violet rounded-xl p-5">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <h2 className="section-title">Movers</h2>
+          <p className="section-sub">{subtitle}</p>
+        </div>
+        <div className="flex shrink-0 overflow-hidden rounded-lg"
+          style={{ border: "1px solid var(--border-subtle)" }}>
+          {(["daily", "monthly"] as const).map((t, i) => (
+            <button key={t} type="button" onClick={() => setTab(t)}
+              className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide transition-colors"
+              style={{
+                background: tab === t ? "rgba(167,139,250,0.18)" : "transparent",
+                color: tab === t ? "#c4b5fd" : "var(--text-muted)",
+                borderLeft: i > 0 ? "1px solid var(--border-subtle)" : undefined,
+              }}>
+              {t === "daily" ? "Today" : "Month"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {!hasData ? (
+        <p className="text-xs" style={{ color: "var(--text-muted)" }}>{noDataMsg}</p>
+      ) : (
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <div>
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.15em] text-emerald-400/80">Top performers</p>
+            {active!.top.length > 0
+              ? active!.top.map((e) => <MoverRow key={e.asset_id} name={e.asset_name} pct={e.pct_change} />)
+              : <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>—</p>}
+          </div>
+          <div>
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.15em] text-red-400/80">Worst performers</p>
+            {active!.bottom.length > 0
+              ? active!.bottom.map((e) => <MoverRow key={e.asset_id} name={e.asset_name} pct={e.pct_change} />)
+              : <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>—</p>}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (

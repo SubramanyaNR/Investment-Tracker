@@ -5,58 +5,72 @@
 ## Current state (as of June 2026)
 
 ### Done and working
-- Full asset management: add, view, delete across all types
-- Crypto: live prices via CoinGecko, P&L
-- Mutual fund: live NAV via MFAPI, auto-SIP on 1st of month
-- Fixed income: compound interest (FD, RD, PPF, Savings)
+- Full asset management: add, view, delete across all types (Crypto, MF, FD, RD, PPF, Savings, Manual)
+- Crypto: live prices via CoinGecko, P&L, sell flow
+- Mutual fund: live NAV via MFAPI, auto-SIP on 1st of month, partial redeem
+- Fixed income: compound interest (FD, RD, PPF, Savings), top-up flow
+- Manual asset tracking: real estate, gold, unlisted shares (cost basis + estimated value)
 - Dashboard KPIs, net worth chart, allocation/liquidity donut charts
-- Transaction history (buys, sells, deposits)
+- Transaction history (buys, sells, deposits); CSV import for history backfill
 - AI insights (Gemini 2.0 Flash + rule-based fallback)
 - Dark/light theme persisted in localStorage
-- Sell crypto / redeem MF (partial) / top-up savings/PPF
 - Auto-populate MF NAV on fund select
+- **Auth + multi-tenancy** — Supabase JWT, per-user data isolation, RLS backstop (M2 resolved)
+- **API response caching** — CoinGecko 60 s, MFAPI NAV 5 min (in-memory)
+- **XIRR** — portfolio-level and per-asset annualised return (F5 + F6)
+- **Performance movers** — best/worst performers monthly (F9) + daily (F10), with Today/Month toggle; `price_per_unit` column ensures capital additions don't inflate the % change
 - Alembic migrations, Docker Compose stack, pg_dump backup script
 
-### Not yet built
-- Auth + multi-tenancy (currently single-user)
-- Google OAuth login (Auth.js / NextAuth v5)
-- Razorpay payments
-- API response caching (CoinGecko rate-limit protection)
-- CI/CD (GitHub Actions auto-deploy), staging env
-- Automated offsite backups (rclone → Google Drive)
-- PWA (manifest + service worker), Play Store via TWA
-- Ansible provisioning
-- Calculation unit tests
-- Monitoring / uptime alerting (UptimeRobot)
-- Day-wise P&L charts
-- "Last updated" timestamps on prices in the UI
+### Remaining known issues / tech debt
+- No automated tests for financial calculations (P&L, compound interest, XIRR, MF returns) — high risk with real money
+- No "last updated" timestamp on prices in the UI (deferred post-VPS)
+- Token revocation (M4) — accepted limitation on Free plan; revisit on Pro/VPS
+- Google OAuth disabled — waiting on real domain (provider not enabled in Supabase)
+- gate.sh substring-matches "alembic upgrade" in commit messages (low-pri false-positive)
+
+---
 
 ## Next major milestones (in order)
 
-### 1. Auth + Multi-tenancy (current priority — only blocker before launch)
-- `users` table; `user_id` FK on `assets`
-- All endpoints filter by authenticated user
-- Google OAuth via Auth.js (NextAuth v5); sessions in Postgres
-- Protect routes behind auth middleware
+### 1. Production infrastructure  ← current priority
+The only hard blocker before launch. Auth is done; the app is ready to serve real users.
 
-### 2. API caching
-- Cache CoinGecko 60s, MFAPI NAV 5min (in-memory or Redis)
-- Without it, concurrent refreshes can hit rate limits
+- Hetzner CX21 VPS (~$5/month), domain + Certbot SSL
+- GitHub Actions CI/CD: push to master → deploy
+- Backup container + rclone to Google Drive (automated offsite)
+- UptimeRobot monitoring + uptime alerting
+- Ansible provisioning for repeatable deploys
+- Staging environment
 
-### 3. Production infrastructure
-- Hetzner VPS, domain + Certbot SSL
-- GitHub Actions CI/CD (push to master → deploy)
-- Backup container + rclone to Google Drive
-- UptimeRobot monitoring
+### 2. Google OAuth login
+Requires a real domain (HTTPS). Supabase provider can be enabled once the VPS + SSL is live.
 
-### 4. PWA + Play Store
-- manifest.json + service worker (installable)
-- TWA wrapper (Bubblewrap) for Play Store; HTTPS prerequisite (needs #3)
+- Enable Google provider in Supabase dashboard
+- Frontend sign-in button; no NextAuth needed (Supabase handles the flow)
 
-### 5. Payments
-- Razorpay (UPI, cards, netbanking); gate features behind subscription; payment webhook
+### 3. PWA + Play Store
+Requires HTTPS (depends on #1).
 
-### 6. Test suite
-- Unit tests for all calculation logic (P&L, compound interest, MF returns)
-- API integration tests with a test database
+- `manifest.json` + service worker (installable on Android/iOS)
+- TWA wrapper (Bubblewrap) for Play Store submission
+
+### 4. Payments — Razorpay
+- UPI, cards, netbanking
+- Gate features behind subscription tier
+- Payment webhook → user plan stored in DB
+
+### 5. Test suite
+Unit and integration test coverage substantially established in Stage 3/5. Remaining gap is targeted.
+
+**Done (90 tests passing):**
+- Unit: `compound_value()` FD/PPF (7), `rd_current_value()`/`_rd_months_elapsed()` RD (6), XIRR Newton-Raphson (14), `_rank()` (7)
+- Integration: performance API incl. capital-add regression (18), XIRR API, asset merge, CSV import
+
+**Remaining:**
+- Integration tests for `recalculate_crypto_valuations()` and `recalculate_mf_valuations()` (live-price paths require mocking CoinGecko/MFAPI)
 - Post-deploy smoke test script
+
+### 6. UX / analytics polish (post-launch)
+- Day-wise P&L chart (sparkline per asset, last 30 days)
+- "Last updated" timestamps on crypto and MF prices in the UI
+- Pagination / infinite scroll for transaction history (currently fetches all)

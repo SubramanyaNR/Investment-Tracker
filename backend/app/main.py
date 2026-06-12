@@ -20,6 +20,7 @@ from app.api.transactions import router as transactions_router
 from app.api.account import router as account_router
 from app.api.importer import router as importer_router, public_router as importer_public_router
 from app.api.xirr import router as xirr_router
+from app.api.performance import router as performance_router
 
 app = FastAPI(title="Investment Observability API")
 
@@ -86,5 +87,6 @@ app.include_router(transactions_router, dependencies=_per_user)
 app.include_router(account_router, dependencies=_per_user)
 app.include_router(importer_router, dependencies=_per_user)
 app.include_router(xirr_router, dependencies=_per_user)
+app.include_router(performance_router, dependencies=_per_user)
 
 

@@ -1,6 +1,7 @@
 import uuid
 from datetime import date
 from decimal import Decimal
+from typing import Optional
 from sqlalchemy import select, delete, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import Asset, CryptoHolding, FixedIncomeHolding, MutualFundHolding, ValuationHistory
@@ -17,6 +18,7 @@ async def _upsert_valuation(
     current: Decimal,
     pnl: Decimal,
     source: str,
+    price_per_unit: Optional[Decimal] = None,
 ) -> None:
     """Replace today's valuation row for this asset to avoid duplicate accumulation."""
     await session.execute(
@@ -36,6 +38,7 @@ async def _upsert_valuation(
         current_value=current,
         pnl=pnl,
         source=source,
+        price_per_unit=price_per_unit,
     ))
 
 
@@ -67,7 +70,7 @@ async def recalculate_crypto_valuations(session: AsyncSession, user_id: uuid.UUI
         current = quantity * price
         pnl = current - invested
 
-        await _upsert_valuation(session, user_id, asset.id, invested, current, pnl, "coingecko")
+        await _upsert_valuation(session, user_id, asset.id, invested, current, pnl, "coingecko", price)
 
         output.append({
             "asset": asset.name,
@@ -152,7 +155,7 @@ async def recalculate_mf_valuations(session: AsyncSession, user_id: uuid.UUID) -
         current = units * current_nav
         pnl = current - invested
 
-        await _upsert_valuation(session, user_id, asset.id, invested, current, pnl, "mfapi")
+        await _upsert_valuation(session, user_id, asset.id, invested, current, pnl, "mfapi", current_nav)
 
         output.append({
             "asset": asset.name,
