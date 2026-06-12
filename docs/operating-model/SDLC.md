@@ -4,12 +4,9 @@
 > It encodes one system reasoning through **seven lenses** and stopping at **one approval gate**.
 > The founder (CEO) approves; nothing in the gated set is executed without an explicit "approved".
 
-## The model: one system, seven lenses + conditional specialist, one gate
+## The model: seven lenses + multi-agent specialization + one approval gate
 
-There are **no separate agents**. For any change I reason through the seven review perspectives
-below in a single pass, plus a conditional eighth lens (Investor Experience Reviewer) if the feature
-is investor-facing. Surface each verdict, then halt at the CEO gate. Full mandates: `ROLES.md`
-and `INVESTOR-EXPERIENCE-REVIEW.md`.
+The SDLC runs through **seven review lenses** (one system reasoning, not seven agents), then **delegates implementation and QA to specialist models** via the AI-SDLC framework. Claude orchestrates; Gemini implements; Qwen tests; Claude audits. Every stage requires explicit CEO approval before proceeding. Full mandates: `ROLES.md` and `INVESTOR-EXPERIENCE-REVIEW.md`.
 
 | Lens | One-line mandate |
 |---|---|
@@ -85,20 +82,109 @@ See example output in `ROLES.md` under "Investor Experience Reviewer."
 (see `GOVERNANCE.md` for what is gated) until the CEO says "approved".
 
 ### Step 7 — Implementation
-Implement **only** the approved scope. No unrelated improvements, no "while I'm here" refactors,
-no redesign unless requested.
+After CEO approval, the implementation intent is handed off to **Gemini** (implementation specialist).
+Gemini implements **only** the approved scope — no unrelated improvements, no "while I'm here" refactors,
+no redesign unless requested. Claude monitors handoff and surfaces any implementation blockers to the CEO.
+
+### Step 8 — QA
+Gemini's implementation is handed off to **Qwen** (QA specialist) for test execution and validation.
+Qwen runs test scenarios, edge cases, regression checks, and re-validates auth + multi-tenancy (SECURITY-AUDIT §7 matrices).
+QA artifacts are stored and surface any failures to Claude for triage.
+
+### Step 9 — Audit & Final Approval
+Claude audits the implementation + QA results against the original approval scope. If all validation passes:
+- Implementation is complete; surfaces it back to CEO
+- If failures exist, Claude reports them to CEO with recommended actions (rework, waive, or abandon)
 
 ## Post-implementation validation (non-negotiable)
 
-Encoded in `runbooks/LOCAL-DEV.md`; never declare success without it:
+Encoded in `runbooks/LOCAL-DEV.md`. Qwen executes these as part of Step 8 QA; Claude verifies completion:
 
 1. `make build` — frontend **production** build succeeds (`npm run build` + `npm run start`, not dev-only).
-2. Run tests (until a suite exists, the SECURITY-AUDIT §7 matrices stand in for auth/tenancy).
+2. Run test suite (unit + integration; SECURITY-AUDIT §7 matrices for auth/tenancy validation).
 3. `make validate` — backend health + `/api` proxy.
 4. **Auth still works** + **multi-tenancy still works** (two-user isolation, 401-without-token, cross-user IDOR → 404).
 5. `e2e-ui-test` skill for affected + adjacent UI. **Mandatory when any user-facing UI was added or changed — not optional.**
 6. **User Journey Walkthrough** — for every interactive element added or changed, trace the full user action from click/tap through to outcome. Ask: *"Can the user actually do what this feature promises?"* This is not test execution; it is deliberate outcome verification. A feature is not complete if a user cannot complete its primary workflow.
 7. Fix → repeat until clean.
+
+## AI-SDLC Multi-Agent Workflow Execution
+
+The AI-SDLC framework automates Steps 1–6 (review), hands off Steps 7–8 (implementation + QA) to specialist models, then Claude returns for Step 9 (audit).
+
+### Workflow Types
+
+- `feature` — new functionality or changes to existing features
+- `architecture` — data model, API, or service boundary changes
+- `security` — auth, isolation, or threat-model changes
+- `release` — production deployment or major version work
+- `incident` — urgent fixes requiring expedited review
+- `discuss` — discussion/exploration (not gated)
+
+### Workflow Lifecycle
+
+Every feature/architecture/security/release/incident workflow follows this sequence:
+
+1. **Planning** — Claude reasons through the 7 lenses, produces review artifacts
+2. **CEO Approval Gate** — STOP. Wait for explicit "approved"
+3. **Implementation** — Gemini takes the approved scope and implements it
+4. **QA** — Qwen validates the implementation (tests, edge cases, regression, auth/tenancy matrices)
+5. **Audit** — Claude audits implementation + QA results against approval scope
+6. **CEO Approval Gate** — STOP. Wait for explicit "approved" to ship
+7. **Complete** — Feature lands; artifacts archived
+
+No automatic advancement between stages. Every gate is explicit.
+
+### Workflow State & Artifacts
+
+Workflow state is stored in:
+```
+.ai-sdlc/artifacts/<feature-name>/status.yaml
+```
+
+Artifacts include:
+- `request.md` — original user request (preserved in full)
+- `planning.md` — the 7-lens review + verdicts
+- `planning_prompt.md` — the exact prompt used for planning
+- `implementation.md` — what Gemini produced
+- `implementation_prompt.md` — the implementation brief
+- `qa.md` — Qwen's test results + validation matrix
+- `qa_prompt.md` — the QA brief
+- `audit.md` — Claude's final audit + recommendations
+- `status.yaml` — workflow metadata (stage, models, timestamps)
+
+### Model Routing
+
+Model assignments are defined in `.ai-sdlc/models.yaml`:
+
+| Stage | Model | Role |
+|---|---|---|
+| Planning + Audit | Claude | Orchestrator; reasons through all 7 lenses |
+| Implementation | Gemini (default) | Implements the approved scope |
+| QA | Qwen (Alibaba Qwen 3.2B via OpenRouter) | Tests, validates, re-runs SECURITY-AUDIT §7 |
+
+**Model ownership is mandatory.** If an assigned model is unavailable, misconfigured, returns only placeholder output, or errors out:
+- The workflow stops at that stage
+- Claude reports the failure to the CEO
+- The CEO chooses: fix the model, remap the stage, perform manual validation, or waive the stage
+- Claude may recommend options but does not choose autonomously
+
+### Using the Workflow
+
+Run the `/feature` command (or `/architecture`, `/security`, etc.) with your request:
+```
+/feature Add real-time price updates to dashboard
+```
+
+Claude automatically:
+1. Detects the workflow type
+2. Reads the request in full
+3. Produces the 7-lens review
+4. Stops at the CEO gate
+5. On approval, hands off to the assigned specialist models via status.yaml
+6. Monitors execution and surfaces results
+
+No manual invocation of individual models needed — Claude orchestrates the handoff.
 
 ## Defaults this SDLC enforces
 - Monolith-first. No microservices / K8s / CQRS / event-sourcing / event-driven without an
