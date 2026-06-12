@@ -17,10 +17,17 @@ import NetWorthChart     from "@/components/NetWorthChart";
 import AllocationCharts  from "@/components/AllocationCharts";
 import ThemeSwitcher     from "@/components/ThemeSwitcher";
 import { useAuth }       from "@/components/AuthProvider";
+import OnboardingOverlay from "@/components/OnboardingOverlay";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-type Dashboard = { total_value: number; total_invested: number; total_pnl: number; pnl_percent?: number };
+type Dashboard = { 
+  total_value: number; 
+  total_invested: number; 
+  total_pnl: number; 
+  pnl_percent?: number;
+  is_onboarding_eligible: boolean;
+};
 type Tab = "overview" | "holdings" | "transactions" | "import";
 
 // ── Config ─────────────────────────────────────────────────────────────────
@@ -76,7 +83,12 @@ export default function DashboardPage() {
   const { signOut } = useAuth();
 
   // ── Data ──
-  const [dashboard,    setDashboard]    = useState<Dashboard>({ total_value: 0, total_invested: 0, total_pnl: 0 });
+  const [dashboard,    setDashboard]    = useState<Dashboard>({ 
+    total_value: 0, 
+    total_invested: 0, 
+    total_pnl: 0, 
+    is_onboarding_eligible: false 
+  });
   const [assets,       setAssets]       = useState<Asset[]>([]);
   const [valuations,   setValuations]   = useState<Record<string, Valuation>>({});
   const [snapshots,    setSnapshots]    = useState<Snapshot[]>([]);
@@ -366,6 +378,11 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen" style={{ background: "var(--bg-base)" }}>
+
+      <OnboardingOverlay 
+        isVisible={dashboard.is_onboarding_eligible} 
+        onAddFirstAsset={() => setTab("holdings")} 
+      />
 
       {/* ── Background layers ── */}
       <div className="ambient-layer ambient-dot-grid" />

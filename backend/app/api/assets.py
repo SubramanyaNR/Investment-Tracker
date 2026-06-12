@@ -4,10 +4,24 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select, delete, and_
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 from typing import Optional
 from app.api.deps import get_session
-from app.db.models import Asset, CryptoHolding, FixedIncomeHolding, ManualHolding, MutualFundHolding, Transaction, ValuationHistory
+from app.db.models import Asset, CryptoHolding, FixedIncomeHolding, ManualHolding, MutualFundHolding, Transaction, ValuationHistory, User
+
+
+async def _complete_onboarding(session, user_id: uuid.UUID) -> None:
+    """Mark onboarding as completed for the user — idempotent upsert."""
+    stmt = (
+        pg_insert(User)
+        .values(id=user_id, onboarding_completed=True)
+        .on_conflict_do_update(
+            index_elements=["id"],
+            set_=dict(onboarding_completed=True)
+        )
+    )
+    await session.execute(stmt)
 from app.services.fixed_income import compound_value, rd_current_value
 from app.core.auth import get_current_user_id
 
@@ -239,6 +253,7 @@ async def create_asset(
                 ))
                 invested = add_qty * add_price
                 await _write_initial_valuation(session, user_id, asset.id, invested, invested, Decimal("0"))
+                await _complete_onboarding(session, user_id)
                 await session.commit()
                 await session.refresh(asset)
                 return _asset_row(asset)
@@ -276,6 +291,7 @@ async def create_asset(
         ))
         invested = Decimal(str(total_qty)) * new_avg
         await _write_initial_valuation(session, user_id, existing.asset_id, invested, invested, Decimal("0"))
+        await _complete_onboarding(session, user_id)
         await session.commit()
 
         asset_result = await session.execute(
@@ -338,6 +354,7 @@ async def create_asset(
                     price_per_unit=add_nav,
                 ))
                 await _write_initial_valuation(session, user_id, asset.id, add_amount, add_amount, Decimal("0"))
+                await _complete_onboarding(session, user_id)
                 await session.commit()
                 await session.refresh(asset)
                 return _asset_row(asset)
@@ -376,6 +393,7 @@ async def create_asset(
         ))
         total_invested = Decimal(str(total_units)) * Decimal(str(existing.nav_at_purchase))
         await _write_initial_valuation(session, user_id, existing.asset_id, total_invested, total_invested, Decimal("0"))
+        await _complete_onboarding(session, user_id)
         await session.commit()
 
         asset_result = await session.execute(
@@ -431,6 +449,7 @@ async def create_asset(
             price_per_unit=None,
         ))
         await _write_initial_valuation(session, user_id, asset.id, fi_invested, fi_current, fi_current - fi_invested)
+        await _complete_onboarding(session, user_id)
         await session.commit()
         await session.refresh(asset)
         return _asset_row(asset)
@@ -462,6 +481,7 @@ async def create_asset(
         ))
         pnl = payload.current_value - payload.cost_basis
         await _write_initial_valuation(session, user_id, asset.id, payload.cost_basis, payload.current_value, pnl, source="manual")
+        await _complete_onboarding(session, user_id)
         await session.commit()
         await session.refresh(asset)
         return _asset_row(asset)
@@ -475,6 +495,7 @@ async def create_asset(
         liquidity_tier=payload.liquidity_tier,
     )
     session.add(asset)
+    await _complete_onboarding(session, user_id)
     await session.commit()
     await session.refresh(asset)
     return _asset_row(asset)

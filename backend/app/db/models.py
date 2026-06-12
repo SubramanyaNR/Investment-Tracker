@@ -9,6 +9,12 @@ class Base(DeclarativeBase):
     pass
 
 
+class User(Base):
+    __tablename__ = "users"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    onboarding_completed: Mapped[bool] = mapped_column(default=False)
+
+
 class Asset(Base):
     __tablename__ = "assets"
     # Target for the child tables' composite (asset_id, user_id) FK — guarantees a

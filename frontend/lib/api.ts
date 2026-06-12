@@ -208,7 +208,13 @@ async function post<T>(path: string, body?: unknown): Promise<T> {
 
 // ── API functions ──────────────────────────────────────────────────────────
 
-export const getDashboard = () => get<Record<string, number>>("/dashboard");
+export const getDashboard = () => get<{
+  total_value: number;
+  total_invested: number;
+  total_pnl: number;
+  pnl_percent: number;
+  is_onboarding_eligible: boolean;
+}>("/dashboard");
 export const getAssets = () => get<Asset[]>("/assets");
 export const getLatestValuations = () => get<Valuation[]>("/valuations/latest");
 export const getSnapshots = () => get<Snapshot[]>("/snapshots");
