@@ -1,0 +1,4 @@
+planning: claude
+implementation: gemini
+qa: qwen
+audit: claude

@@ -379,7 +379,7 @@ export default function DashboardPage() {
 
           {/* Logo + title */}
           <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+            <div className="logo-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
               style={{ background: "linear-gradient(135deg,rgba(245,158,11,0.22) 0%,rgba(251,191,36,0.10) 100%)", border: "1px solid rgba(245,158,11,0.32)", boxShadow: "0 0 20px rgba(245,158,11,0.12)" }}>
               <svg className="h-3.5 w-3.5 text-amber-400" viewBox="0 0 16 16" fill="none">
                 <polyline points="1,13 5,8 9,10.5 15,3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
@@ -395,9 +395,9 @@ export default function DashboardPage() {
           </div>
 
           {/* Right controls */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {lastRefreshed && (
-              <p className="hidden text-[11px] sm:block" style={{ color: "var(--text-muted)" }}>
+              <p className="hidden text-[11px] md:block" style={{ color: "var(--text-muted)" }}>
                 Updated {lastRefreshed.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
               </p>
             )}
@@ -407,11 +407,14 @@ export default function DashboardPage() {
                 <path d="M14 8A6 6 0 1 1 8 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                 <path d="M13.5 2v3.5H10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-              {refreshing ? "Refreshing…" : "Refresh"}
+              <span className="hidden sm:inline">{refreshing ? "Refreshing…" : "Refresh"}</span>
             </button>
             <ThemeSwitcher />
             <button type="button" onClick={signOut} className="btn-refresh" aria-label="Sign out">
-              Sign out
+              <span className="hidden sm:inline">Sign out</span>
+              <svg className="h-3 w-3 sm:hidden" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 3H13V13H9M6 11L9 8L6 5M9 8H2" />
+              </svg>
             </button>
           </div>
 

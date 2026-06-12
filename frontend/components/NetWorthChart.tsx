@@ -5,6 +5,7 @@ import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
 } from "recharts";
 import type { Snapshot } from "@/lib/api";
+import { useTheme } from "./ThemeProvider";
 
 type RangeKey = "1W" | "1M" | "1Y" | "ALL";
 
@@ -54,6 +55,7 @@ function ChartTooltip({ active, payload, label }: {
 
 export default function NetWorthChart({ snapshots }: { snapshots: Snapshot[] }) {
   const [range, setRange] = useState<RangeKey>("1M");
+  const { theme } = useTheme();
 
   if (snapshots.length === 0) return null;
 
@@ -68,6 +70,9 @@ export default function NetWorthChart({ snapshots }: { snapshots: Snapshot[] }) 
     "Net Worth": s.total_value,
     "Invested":  s.total_invested,
   }));
+
+  const netWorthColor = theme === "mono" ? "#ffffff" : "#f59e0b";
+  const investedColor = theme === "mono" ? "rgba(255,255,255,0.35)" : "#a78bfa";
 
   return (
     <section className="card card-amber rounded-xl p-5">
@@ -85,9 +90,10 @@ export default function NetWorthChart({ snapshots }: { snapshots: Snapshot[] }) 
               aria-pressed={range === option}
               className="min-h-8 min-w-10 px-2.5 py-1 text-[10px] font-semibold uppercase transition-colors sm:min-w-11 sm:px-3"
               style={{
-                background: range === option ? "rgba(245,158,11,0.18)" : "transparent",
-                color: range === option ? "#fcd34d" : "var(--text-muted)",
+                background: range === option ? "var(--input-focus-bg)" : "transparent",
+                color: range === option ? "var(--text-primary)" : "var(--text-muted)",
                 borderLeft: i > 0 ? "1px solid var(--border-subtle)" : undefined,
+                backgroundColor: range === option ? (theme === "mono" ? "rgba(255,255,255,0.15)" : "rgba(245,158,11,0.15)") : undefined,
               }}>
               {option}
             </button>
@@ -107,22 +113,27 @@ export default function NetWorthChart({ snapshots }: { snapshots: Snapshot[] }) 
             <XAxis dataKey="date" tick={{ fontSize: 9, fill: "var(--text-muted)" }} tickLine={false} axisLine={false} />
             <YAxis tickFormatter={fmt} tick={{ fontSize: 9, fill: "var(--text-muted)" }} tickLine={false} axisLine={false} width={64} />
             <Tooltip content={<ChartTooltip />} />
-            <Line type="monotone" dataKey="Net Worth" stroke="#f59e0b" strokeWidth={2}
-              dot={showDots ? { fill: "#f59e0b", r: 3 } : false}
-              activeDot={{ r: 4, fill: "#f59e0b" }} />
-            <Line type="monotone" dataKey="Invested" stroke="#a78bfa" strokeWidth={1.5}
-              strokeDasharray="5 3" dot={showDots ? { fill: "#a78bfa", r: 2.5 } : false} activeDot={{ r: 3, fill: "#a78bfa" }} />
+            <Line type="monotone" dataKey="Net Worth" stroke={netWorthColor} strokeWidth={2}
+              dot={showDots ? { fill: netWorthColor, r: 3 } : false}
+              activeDot={{ r: 4, fill: netWorthColor }} />
+            <Line type="monotone" dataKey="Invested" stroke={investedColor} strokeWidth={1.5}
+              strokeDasharray="5 3" dot={showDots ? { fill: investedColor, r: 2.5 } : false} activeDot={{ r: 3, fill: investedColor }} />
           </LineChart>
         </ResponsiveContainer>
       )}
 
       <div className="mt-3 flex items-center gap-5">
         <span className="flex items-center gap-1.5 text-[10px]" style={{ color: "var(--text-secondary)" }}>
-          <span className="h-[2px] w-5 rounded-full bg-amber-400" />Net Worth
+          <span className="h-[2px] w-5 rounded-full" style={{ background: netWorthColor }} />Net Worth
         </span>
         <span className="flex items-center gap-1.5 text-[10px]" style={{ color: "var(--text-secondary)" }}>
-          <span className="h-[2px] w-5 rounded-full bg-violet-400 opacity-60"
-            style={{ backgroundImage: "repeating-linear-gradient(90deg,#a78bfa 0,#a78bfa 4px,transparent 4px,transparent 7px)" }} />
+          <span className="h-[2px] w-5 rounded-full"
+            style={{ 
+              opacity: 0.6,
+              backgroundImage: theme === "mono" 
+                ? "repeating-linear-gradient(90deg, #ffffff 0, #ffffff 4px, transparent 4px, transparent 7px)"
+                : "repeating-linear-gradient(90deg, #a78bfa 0, #a78bfa 4px, transparent 4px, transparent 7px)" 
+            }} />
           Invested
         </span>
       </div>
