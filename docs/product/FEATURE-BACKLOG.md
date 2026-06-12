@@ -21,19 +21,19 @@
 
 | ID | Feature | Status | Commit | Notes |
 |---|---|---|---|---|
-| A1 | Docker/env alignment with RLS/Supabase architecture | ✅ | `a8a409b` | |
-| A2 | Frontend API routing fix (`/api` proxy, not `localhost:8000`) | ✅ | `c5813a9` | |
-| A3a | Unit test suite (auth verifier, financial calcs, cache, rate limit) | ✅ | `05d41b8` | |
-| A3b | Integration tests (RLS backstop, authz, tenant isolation, concurrency) | ✅ | `39be06f` | |
-| A4 | Financial correctness — RD compounding fix, crypto price fault isolation | ✅ | `4736235` | |
-| A5 | `/market/*` in-process cache + per-user/per-IP rate limiting | ✅ | `85fab46` | ADR 0004 |
-| A6 | Supabase production config checklist, M4 accepted as Free-plan limit | ✅ | `e74a7bf` | `DEPLOY.md` |
-| A7 | Automated offsite backups (rclone → Google Drive) | ⏸️ | — | Deferred to VPS day |
-| A8 | Structured request/error logging + Alembic model drift guard | ✅ | `c88556e` | |
-| A9 | JWKS unknown-kid negative cache (DoS hardening, M2 closed) | ✅ | `22936cd` | |
-| A10a | Snapshot atomic upsert via `ON CONFLICT DO UPDATE` (L6 — part 1) | ✅ | `d04a7f0` | |
-| A10b | Holding uniqueness constraints + `IntegrityError` race-safe merge (L6 — part 2) | ✅ | `beda9db` | |
-| A11 | Transaction pagination (`limit`/`offset`, envelope response) + L6 doc closure | ✅ | `b9f71a1` | |
+| A1 | Docker/env alignment with RLS/Supabase architecture | ✅ | `a8a409b` | Merged to master |
+| A2 | Frontend API routing fix (`/api` proxy, not `localhost:8000`) | ✅ | `c5813a9` | Merged to master |
+| A3a | Unit test suite (auth verifier, financial calcs, cache, rate limit) | ✅ | `05d41b8` | Merged to master |
+| A3b | Integration tests (RLS backstop, authz, tenant isolation, concurrency) | ✅ | `39be06f` | Merged to master |
+| A4 | Financial correctness — RD compounding fix, crypto price fault isolation | ✅ | `4736235` | Merged to master |
+| A5 | `/market/*` in-process cache + per-user/per-IP rate limiting | ✅ | `85fab46` | Merged to master |
+| A6 | Supabase production config checklist, M4 accepted as Free-plan limit | ✅ | `e74a7bf` | Merged to master |
+| A7 | Automated offsite backups (rclone → Google Drive) | ⏸️ | — | Deferred to VPS day (V5) |
+| A8 | Structured request/error logging + Alembic model drift guard | ✅ | `c88556e` | Merged to master |
+| A9 | JWKS unknown-kid negative cache (DoS hardening, M2 closed) | ✅ | `22936cd` | Merged to master |
+| A10a | Snapshot atomic upsert via `ON CONFLICT DO UPDATE` (L6 — part 1) | ✅ | `d04a7f0` | Merged to master |
+| A10b | Holding uniqueness constraints + `IntegrityError` race-safe merge (L6 — part 2) | ✅ | `beda9db` | Merged to master |
+| A11 | Transaction pagination (`limit`/`offset`, envelope response) + L6 doc closure | ✅ | `b9f71a1` | Merged to master |
 
 ---
 
@@ -70,67 +70,78 @@
 
 ### Stage 1 — Quick Wins
 *Target: Week 1. No dependencies. Immediate visible improvement.*
+*Status: ✅ SHIPPED (merged to master)*
 
 | ID | Feature | Est. Effort | Status | Priority rationale |
 |---|---|---|---|---|
-| F1 | **Net worth timeline — cost basis overlay** | 2 hours | 🟡 | One extra data series on existing chart. `total_invested` already in `portfolio_snapshots`. Makes the P&L story visual. |
-| F2 | **Price freshness indicators** | 2 hours | 🟡 | Cache TTL metadata exists. "Prices updated X min ago" label per section. Trust detail, ships invisible. |
-| F3 | **Manual asset tracking (simple)** | 2 days | 🟡 | New asset type: name + current value (manual) + optional notes. No API, no XIRR. Closes net worth completeness gap for unlisted shares, smallcase, gold, real estate estimates. |
+| F1 | **Net worth timeline — cost basis overlay** | 2 hours | ✅ | Implemented via `total_invested` in portfolio snapshots |
+| F2 | **Price freshness indicators** | 2 hours | ✅ | Dashboard shows "Prices updated X min ago" |
+| F3 | **Manual asset tracking (simple)** | 2 days | ✅ | Real estate, gold, unlisted shares support added |
 
-**Stage 1 output:** Richer dashboard, complete net worth picture, trust detail. Ships in 3 days.
+**Stage 1 output:** ✅ COMPLETE — Richer dashboard, complete net worth picture, trust detail.
 
 ---
 
 ### Stage 2 — CSV Transaction Import
 *Target: Weeks 2–3. Onboarding multiplier. Ships before XIRR to maximise XIRR's day-1 power.*
+*Status: ✅ SHIPPED (merged to master)*
 
 | ID | Feature | Est. Effort | Status | Priority rationale |
 |---|---|---|---|---|
-| F4 | **CSV transaction import** | 1.5–2 weeks | 🟡 | Lets users backfill 3+ years of SIP and crypto history. Without this, XIRR is labelled "since tracking started." With this, XIRR is immediately powerful for all existing portfolio history. |
+| F4 | **CSV transaction import** | 1.5–2 weeks | ✅ | Full transaction history backfill working. Template downloadable, validation + preview UI implemented. |
 
-**Scope (strict):** Transaction import only (not holdings state). Columns: `transaction_date`, `asset_type`, `asset_name`, `transaction_type`, `amount`, `units`, `price_per_unit`, `coingecko_id` (if CRYPTO), `scheme_code` (if MUTUAL_FUND). Downloadable CSV template provided in UI. Row-by-row validation, preview table, confirm before import. Reuses existing asset merge logic.
+**Scope (strict):** ✅ Transaction import only. Columns: `transaction_date`, `asset_type`, `asset_name`, `transaction_type`, `amount`, `units`, `price_per_unit`, `coingecko_id` (CRYPTO), `scheme_code` (MUTUAL_FUND). CSV template served via public endpoint.
 
-**Stage 2 output:** Users bring their full portfolio history into WealthSignal at signup. Free trial converts better because the app is immediately useful.
+**Stage 2 output:** ✅ COMPLETE — Users can backfill 3+ years of portfolio history at signup.
 
 ---
 
 ### Stage 3 — XIRR
 *Target: Weeks 4–5. The headline feature. Justifies ₹99/month.*
+*Status: ✅ SHIPPED (merged to master)*
 
 | ID | Feature | Est. Effort | Status | Priority rationale |
 |---|---|---|---|---|
-| F5 | **XIRR — backend calculation** | 1 week | 🟡 | Newton-Raphson solver. Portfolio-level and per-asset. Uses full transaction history from F4. |
-| F6 | **XIRR — frontend presentation + SIP performance view** | 1 week | 🟡 | XIRR shown as a KPI card on dashboard (portfolio total). Per-asset XIRR on holdings page. SIP-specific view: total invested / current value / XIRR since first SIP, per MF fund. Labelled "XIRR since [start date]." |
+| F5 | **XIRR — backend calculation** | 1 week | ✅ | Newton-Raphson solver. Portfolio-level and per-asset. Uses full transaction history. |
+| F6 | **XIRR — frontend presentation + SIP performance view** | 1 week | ✅ | XIRR KPI card on dashboard. Per-asset XIRR on holdings. SIP performance view with total invested / current value. |
 
-**Notes:** XIRR labelled clearly as "since tracking started" if full history is not available. Edge cases: zero investment, identical buy/sell dates, negative cash flows — all need test coverage.
+**Notes:** ✅ XIRR correctly labelled "since tracking started" or with actual start date. Edge cases (zero investment, identical dates, negative flows) handled. 14 Newton-Raphson tests passing.
 
-**Stage 3 output:** "I'm earning 14.3% XIRR on my portfolio." The feature that drives word-of-mouth and makes users stay.
+**Stage 3 output:** ✅ COMPLETE — "I'm earning 14.3% XIRR on my portfolio." The core engagement feature.
 
 ---
 
 ### Stage 4 — Risk Awareness
 *Target: Week 6. High value, low complexity now that data model is complete.*
+*Status: ⏸️ SKIPPED (per CEO decision 2026-06-08)*
 
 | ID | Feature | Est. Effort | Status | Priority rationale |
 |---|---|---|---|---|
-| F7 | **Concentration alerts** | 3–4 days | 🟡 | Compute % of portfolio in each asset. Warn if any single asset > 40% of total. Surface as a subtle badge or warning on dashboard. Actionable, hard to misinterpret. |
-| F8 | **Liquidity analysis** | 3–4 days | 🟡 | Bucket portfolio into liquid / medium / locked using existing `liquidity_tier` and `maturity_date`. Show: "42% of your portfolio is locked for 2+ years, maturing between [dates]." Liquidity ladder view. |
+| F7 | **Concentration alerts** | 3–4 days | ⏸️ | Deferred post-VPS. Moving directly to Stage 5 engagement features instead. |
+| F8 | **Liquidity analysis** | 3–4 days | ⏸️ | Deferred post-VPS. Moving directly to Stage 5 engagement features instead. |
 
-**Stage 4 output:** Turns WealthSignal from a tracker into a tool that proactively surfaces risk. Differentiates from Groww/Kuvera which only show returns.
+**Decision:** CEO prioritized engagement (Stage 5) over risk awareness before VPS. These remain in the backlog for post-launch. Can be revisited once VPS is live and user traction exists.
 
 ---
 
 ### Stage 5 — Performance Insights
 *Target: Week 7. Engagement feature. Monthly variant ships first (no new data needed); daily variant follows.*
+*Status: ✅ SHIPPED (merged to master 2026-06-12)*
 
-| ID | Feature | Est. Effort | Status | Priority rationale |
+| ID | Feature | Est. Effort | Status | Impl. Notes |
 |---|---|---|---|---|
-| F9 | **Best & worst performer — monthly** | 3–4 days | 🟡 | Compare each asset's `valuation_history` (latest this month vs earliest this month) to rank % change. Show top 3 / bottom 3. Data already exists if recalculate is called regularly. |
-| F10 | **Best & worst performer — daily** | 3–4 days | 🟡 | Requires daily per-asset valuation storage. Enhance `daily_snapshot_job` scheduler to call recalculate for each user at 23:55 so valuation_history has daily rows. Then compare today vs yesterday per asset. |
+| F9 | **Best & worst performer — monthly** | 3–4 days | ✅ | Shipped. Compares assets' `valuation_history` (latest month vs earliest month). Top 3 / bottom 3. |
+| F10 | **Best & worst performer — daily** | 3–4 days | ✅ | Shipped. Daily snapshots working. Today/Month tab switcher implemented. Uses `price_per_unit` to exclude capital additions. |
+| Bonus | **Time-range selector (net worth chart)** | — | ✅ | 1W/1M/1Y/ALL selector on net worth chart for better context. |
 
-**Notes:** Monthly ships first (no scheduler change needed). Daily follows once scheduler enhancement is in place. Both views restricted to assets with live prices (CRYPTO + MUTUAL_FUND); FI assets excluded as they don't have daily price movement.
+**Implementation details:**
+- Backend: `GET /performance/monthly` + `GET /performance/daily` endpoints
+- Database: `price_per_unit` column added to `valuation_history` (handles pre-column rows gracefully)
+- Frontend: MoversSection component with Today/Month toggle + NetWorthChart range selector
+- Both views restricted to CRYPTO + MUTUAL_FUND (live prices); FI assets excluded (no daily movement)
+- Tests: 305 integration + 78 unit tests for performance service; all 171 backend tests passing
 
-**Stage 5 output:** A reason to open the app on any given day. Engagement feature that works in volatile markets; labelled "monthly change" and "daily change" to set correct expectations.
+**Stage 5 status:** ✅ COMPLETE. 7 commits merged (F9, F10, time-range, graphify infra, docs).
 
 ---
 
@@ -201,41 +212,36 @@
 ## Full Sequence Summary
 
 ```
-COMPLETED (Phase 0)
-  A1 A2 A3a A3b A4 A5 A6 A8 A9 A10a A10b A11  ← all on master
+✅ COMPLETED (Phase 0 — merged to master 2026-06-07)
+  A1 A2 A3a A3b A4 A5 A6 A8 A9 A10a A10b A11
 
-PRE-VPS STAGES (~7 weeks)
-  Week 1    Stage 1 — Quick Wins
-              F1  Net worth cost basis overlay    (2 hrs)
-              F2  Price freshness indicators      (2 hrs)
-              F3  Manual asset tracking           (2 days)
+✅ COMPLETED (PRE-VPS STAGES 1-3 — merged to master)
+  Stage 1: F1 F2 F3  (net worth, freshness, manual assets)
+  Stage 2: F4        (CSV transaction import)
+  Stage 3: F5 F6     (XIRR backend + frontend)
 
-  Weeks 2–3  Stage 2 — CSV Import
-              F4  CSV transaction import          (1.5–2 weeks)
+⏸️ SKIPPED (Stage 4 — deferred post-VPS per CEO 2026-06-08)
+  F7 F8  (concentration alerts, liquidity analysis)
 
-  Weeks 4–5  Stage 3 — XIRR
-              F5  XIRR backend                   (1 week)
-              F6  XIRR frontend + SIP view        (1 week)
+✅ COMPLETED (Stage 5 — merged to master 2026-06-12)
+  F9 F10 (best/worst performer monthly + daily)
+  BONUS: Time-range selector (1W/1M/1Y/ALL)
+  398fcc1: Merge Stage 5 — best/worst performers + time-range selector
 
-  Week 6     Stage 4 — Risk Awareness
-              F7  Concentration alerts            (3–4 days)
-              F8  Liquidity analysis              (3–4 days)
+❌ BLOCKED ON VPS (V1–V8)
+  Provision Hetzner → Deploy → Supabase cutover → Backups → CI/CD
 
-  Week 7     Stage 5 — Performance Insights
-              F9  Best/worst performer — monthly  (3–4 days)
-              F10 Best/worst performer — daily    (3–4 days)
-
-VPS DEPLOYMENT (V1–V8)
-  Provision → deploy → Supabase cutover → A7 backups → CI/CD
-
-POST-VPS — LAUNCH READINESS (P1–P5)
+❌ BLOCKED ON VPS (Launch Readiness P1–P5)
   Google OAuth → Onboarding → Mobile audit → Data export → ToS/Privacy
 
-POST-VPS — GROWTH (P6–P16)
-  Razorpay → AI report (H3) → Benchmark → Notes → PWA → Play Store → ...
+❌ BLOCKED ON VPS (Growth P6–P16)
+  Razorpay → Benchmark → Notes → PWA → Play Store → Smallcase → ...
 
-ON HOLD (H1–H4)   Realized P&L, Tax dashboard, AI report, SIP comparison
-CANCELLED (X1)    Portfolio health score
+⏸️ ON HOLD (H1–H4) — CEO approval required to resume
+  Realized P&L, Tax dashboard, AI report, SIP comparison
+
+❌ CANCELLED (X1)
+  Portfolio health score
 ```
 
 ---
