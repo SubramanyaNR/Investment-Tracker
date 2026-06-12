@@ -3,9 +3,10 @@
 interface Props {
   isVisible: boolean;
   onAddFirstAsset: () => void;
+  onDismiss: () => void;
 }
 
-export default function OnboardingOverlay({ isVisible, onAddFirstAsset }: Props) {
+export default function OnboardingOverlay({ isVisible, onAddFirstAsset, onDismiss }: Props) {
   if (!isVisible) return null;
 
   return (
@@ -18,6 +19,19 @@ export default function OnboardingOverlay({ isVisible, onAddFirstAsset }: Props)
           boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)"
         }}
       >
+        {/* Close button */}
+        <button
+          onClick={onDismiss}
+          type="button"
+          className="absolute top-3 right-3 p-2 rounded-lg transition-colors hover:bg-white/5"
+          style={{ color: "var(--text-secondary)" }}
+          aria-label="Dismiss onboarding"
+        >
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
+
         {/* Background glow effect */}
         <div className="absolute -top-24 -left-24 w-48 h-48 bg-amber-500/10 blur-[80px] rounded-full" />
         <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-violet-500/10 blur-[80px] rounded-full" />

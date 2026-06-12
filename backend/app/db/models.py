@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import String, Numeric, Date, DateTime, ForeignKey, ForeignKeyConstraint, JSON, UniqueConstraint, func
+from sqlalchemy import String, Numeric, Date, DateTime, ForeignKey, ForeignKeyConstraint, JSON, UniqueConstraint, func, Boolean
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import UUID
 from typing import Optional
@@ -12,7 +12,7 @@ class Base(DeclarativeBase):
 class User(Base):
     __tablename__ = "users"
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
-    onboarding_completed: Mapped[bool] = mapped_column(default=False)
+    onboarding_completed: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false", default=False)
 
 
 class Asset(Base):

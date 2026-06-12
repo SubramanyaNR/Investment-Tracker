@@ -108,6 +108,7 @@ export default function DashboardPage() {
 
   // ── UI state ──
   const [tab, setTab] = useState<Tab>("overview");
+  const [isDismissed, setIsDismissed] = useState(false);
   const [error,         setError]         = useState("");
   const [loading,       setLoading]       = useState(false);
   const [refreshing,    setRefreshing]    = useState(false);
@@ -380,8 +381,9 @@ export default function DashboardPage() {
     <div className="min-h-screen" style={{ background: "var(--bg-base)" }}>
 
       <OnboardingOverlay 
-        isVisible={dashboard.is_onboarding_eligible} 
-        onAddFirstAsset={() => setTab("holdings")} 
+        isVisible={dashboard.is_onboarding_eligible && !isDismissed} 
+        onAddFirstAsset={() => { setTab("holdings"); setIsDismissed(true); }}
+        onDismiss={() => setIsDismissed(true)}
       />
 
       {/* ── Background layers ── */}
