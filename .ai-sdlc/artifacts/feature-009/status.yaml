@@ -1,0 +1,11 @@
+workflow: feature
+id: feature-009
+stage: qa
+status: active
+approved: false
+created_at: '2026-06-15T12:22:11.670599'
+model_planning: claude
+model_implementation: gemini
+model_rework: gemini
+model_qa: qwen
+model_audit: claude

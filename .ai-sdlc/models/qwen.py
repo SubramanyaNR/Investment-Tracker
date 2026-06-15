@@ -3,6 +3,7 @@ import json
 import urllib.request
 import urllib.error
 from pathlib import Path
+from typing import Optional
 from .base import ModelAdapter
 
 _ENV_FILE = Path(__file__).parent.parent / ".env"
@@ -28,7 +29,7 @@ class QwenAdapter(ModelAdapter):
     Adapter for Alibaba's Qwen models via OpenRouter.
     """
 
-    def run(self, prompt: str, log_path: Path | None = None) -> str:
+    def run(self, prompt: str, log_path: Optional[Path] = None) -> str:
         api_key = _load_api_key()
         if not api_key:
             return "Error: OPENROUTER_API_KEY not found in environment or backend/.env."

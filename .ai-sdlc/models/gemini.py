@@ -1,6 +1,7 @@
 import subprocess
 import shutil
 from pathlib import Path
+from typing import Optional
 from .base import ModelAdapter
 
 # Repo root is two levels up from this file (.ai-sdlc/models/gemini.py).
@@ -18,7 +19,7 @@ class GeminiAdapter(ModelAdapter):
     untrusted-directory refusal; cwd pins edits to the repo, not .ai-sdlc.
     """
 
-    def run(self, prompt: str, log_path: Path | None = None) -> str:
+    def run(self, prompt: str, log_path: Optional[Path] = None) -> str:
         if not shutil.which("gemini"):
             return "Error: 'gemini' CLI not found in PATH. Please install it to use this adapter."
 

@@ -17,7 +17,7 @@ GET  /valuations/latest                           → latest Valuation per asset
 POST /valuations/recalculate                      → refresh all prices, update valuations + snapshot
 
 GET  /snapshots                                   → Snapshot[] ordered by date
-GET  /transactions                                → TxRecord[] ordered by date desc
+GET  /transactions?from={date}&to={date}          → TxRecord[] ordered by date desc (inclusive filters)
 
 GET  /market/crypto/top                           → top 10 CoinGecko coins (INR)
 GET  /market/mutual-funds/search?q={query}        → MutualFundScheme[] (min 3 chars, max 20)

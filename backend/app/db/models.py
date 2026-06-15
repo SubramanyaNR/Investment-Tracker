@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import String, Numeric, Date, DateTime, ForeignKey, ForeignKeyConstraint, JSON, UniqueConstraint, func, Boolean
+from sqlalchemy import String, Numeric, Date, DateTime, ForeignKey, ForeignKeyConstraint, Index, JSON, UniqueConstraint, func, Boolean
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import UUID
 from typing import Optional
@@ -39,6 +39,7 @@ class Transaction(Base):
             ["asset_id", "user_id"], ["assets.id", "assets.user_id"],
             name="fk_transactions_asset_user", ondelete="CASCADE",
         ),
+        Index("ix_transactions_user_id_transaction_date", "user_id", "transaction_date"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
