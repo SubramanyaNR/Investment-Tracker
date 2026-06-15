@@ -215,7 +215,20 @@ export const getDashboard = () => get<{
   pnl_percent: number;
   is_onboarding_eligible: boolean;
 }>("/dashboard");
-export const getAssets = () => get<Asset[]>("/assets");
+export const getAssets = async (): Promise<Asset[]> => {
+  const firstPage = await get<AssetPage>("/assets?limit=200");
+  let allAssets = [...firstPage.items];
+  let offset = 200;
+
+  // CEO: Cap at 5 pages × 200 = 1000 assets. Keeps existing UX identical.
+  while (allAssets.length < firstPage.total && offset < 1000) {
+    const nextPage = await get<AssetPage>(`/assets?limit=200&offset=${offset}`);
+    if (nextPage.items.length === 0) break;
+    allAssets = [...allAssets, ...nextPage.items];
+    offset += 200;
+  }
+  return allAssets;
+};
 export const getLatestValuations = () => get<Valuation[]>("/valuations/latest");
 export const getSnapshots = () => get<Snapshot[]>("/snapshots");
 export const getTransactions = () => get<TxPage>("/transactions");

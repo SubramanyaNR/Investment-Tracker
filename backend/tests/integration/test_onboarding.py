@@ -55,7 +55,7 @@ async def test_onboarding_eligibility_flow(api: AsyncClient, onboarding_seed):
     
     # Confirm asset count is 0
     resp = await client.get("/assets")
-    assert len(resp.json()) == 0
+    assert resp.json()["total"] == 0
 
     # Dashboard should still show NOT eligible because flag is True
     resp = await client.get("/dashboard")

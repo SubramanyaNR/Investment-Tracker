@@ -10,8 +10,8 @@ pytestmark = [pytest.mark.integration, pytest.mark.asyncio]
 
 
 async def test_asset_list_scoped_to_owner(api, seed):
-    a = (await api.as_user(seed["A"]["user"]).get("/assets")).json()
-    b = (await api.as_user(seed["B"]["user"]).get("/assets")).json()
+    a = (await api.as_user(seed["A"]["user"]).get("/assets")).json()["items"]
+    b = (await api.as_user(seed["B"]["user"]).get("/assets")).json()["items"]
     a_ids = {x["id"] for x in a}
     b_ids = {x["id"] for x in b}
     assert a_ids == {str(seed["A"]["asset"])}
@@ -50,7 +50,7 @@ async def test_cannot_delete_other_tenants_asset(api, seed):
     resp = await api.as_user(seed["A"]["user"]).delete(f"/assets/{seed['B']['asset']}")
     assert resp.status_code == 404
     # B's asset still present for B.
-    b = (await api.as_user(seed["B"]["user"]).get("/assets")).json()
+    b = (await api.as_user(seed["B"]["user"]).get("/assets")).json()["items"]
     assert {x["id"] for x in b} == {str(seed["B"]["asset"])}
 
 
@@ -64,4 +64,4 @@ async def test_can_delete_own_asset(api, seed):
     resp = await api.as_user(seed["A"]["user"]).delete(f"/assets/{seed['A']['asset']}")
     assert resp.status_code in (200, 204)
     after = (await api.as_user(seed["A"]["user"]).get("/assets")).json()
-    assert after == []
+    assert after["items"] == [] and after["total"] == 0

@@ -1,9 +1,9 @@
 import uuid
 from decimal import Decimal
 from datetime import date
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import select, delete, and_
+from sqlalchemy import select, delete, and_, func
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 from typing import Optional
@@ -121,14 +121,25 @@ async def _write_initial_valuation(
 async def list_assets(
     session=Depends(get_session),
     user_id: uuid.UUID = Depends(get_current_user_id),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
 ):
+    total_result = await session.execute(
+        select(func.count()).select_from(Asset).where(Asset.user_id == user_id)
+    )
+    total = total_result.scalar_one()
+
     result = await session.execute(
-        select(Asset).where(Asset.user_id == user_id).order_by(Asset.created_at.desc())
+        select(Asset)
+        .where(Asset.user_id == user_id)
+        .order_by(Asset.asset_type.asc(), Asset.name.asc())
+        .limit(limit)
+        .offset(offset)
     )
     assets = result.scalars().all()
 
     if not assets:
-        return []
+        return {"items": [], "total": total, "limit": limit, "offset": offset}
 
     asset_ids = [a.id for a in assets]
 
@@ -194,7 +205,12 @@ async def list_assets(
 
         rows.append(row)
 
-    return rows
+    return {
+        "items": rows,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+    }
 
 
 @router.post("/assets")

@@ -1,0 +1,76 @@
+## Audit Review: Feature-009 — Pagination on GET /assets
+
+### Overall Verdict
+
+The feature is architecturally sound and the implementation direction is correct. One critical test defect blocks the QA gate. Several secondary gaps are worth tracking. The implementation does not require governance re-escalation — no schema changes, no auth changes, no architecture drift. This is a clean, well-scoped delivery blocked only by a test fixture bug.
+
+---
+
+### Planning Review Quality
+
+The planning document is one of the stronger ones I have seen in this codebase. Seven lenses were applied substantively, not ceremonially. The CTO lens correctly identified the key pre-implementation decision (fetch-all-pages vs. UI pagination) and resolved it before work began. The Investor Advisor lens correctly flagged the highest-risk failure mode: partial holdings silently corrupting net worth. The Architect lens flagged the COUNT(*) independence requirement — that is the right instinct and it was followed in implementation.
+
+One gap in planning: there was no explicit call-out that the `api.ts` layer needed to be updated at the type boundary *first*, so the TypeScript compiler would surface all callsites. The implementation did update `api.ts`, but it is not clear from the implementation summary whether the TypeScript type change was used as a compiler-driven audit of all usages or whether callsites were found manually. For a production codebase this distinction matters — manual search misses things; compiler errors do not.
+
+---
+
+### Implementation Assessment
+
+**Backend** — Correct. The envelope shape matches the transactions precedent. The separate COUNT(*) query is the right approach; a window function would also be acceptable but the two-query approach is simpler and readable. Stable ordering by `(asset_type ASC, name ASC)` at the SQL layer is correct — this must not be done in Python after the query returns, and the implementation description says it is in the query. Assuming that is true, no concern.
+
+**Frontend** — The transparent page-merging strategy (fetch all pages up to 1,000, merge into a single array) is the right call for a personal tracker. It preserves existing UX with no UI changes, and 1,000 assets is a ceiling no retail investor will reach. The `AssetPage` type addition is the right anchor point — if the type was changed there first, TypeScript will have caught all callsites that read the raw array shape. If any callsite was missed, it will produce a runtime error (`Cannot read properties of undefined reading 'map'` or similar) on the array where an envelope is now returned.
+
+**Risk not yet resolved**: The implementation summary says existing tests in `test_manual_assets.py` and `test_auth_isolation.py` were updated to account for the new envelope. But the QA report does not confirm these tests pass. The UUID bug in `test_assets_pagination.py` causes collection failure in that file, but it should not affect `test_manual_assets.py` or `test_auth_isolation.py` unless they import from the broken file or share a fixture. This needs explicit confirmation that the existing test suites pass independently.
+
+---
+
+### QA Review Assessment
+
+The QA report is accurate and well-structured. I agree with all findings. Prioritized:
+
+**P0 — Must fix before merge:**
+
+The `USER_P` UUID using `pppppppp-pppp-pppp-pppp-pppppppppppp` is not a valid UUID hex string. This causes a `ValueError` at collection time, which means no tests in `test_assets_pagination.py` run at all. The implementation has zero automated coverage of its own new behavior. Fix: use a valid UUID literal such as `"a0000000-0000-0000-0000-000000000001"` or generate via `uuid.uuid4()` at module level.
+
+**P1 — Should fix before merge:**
+
+- `offset` beyond `total` must return `{"items": [], "total": N}` not an error. The QA report flags that the current behavior may return an error — if true, this is a correctness bug. FastAPI with SQLAlchemy will return an empty list naturally from an offset-beyond-bounds query, so this may already work correctly, but it needs a test to confirm.
+- `limit=0` should return 422. FastAPI's `Query(ge=1)` should handle this automatically, but again it needs a test to confirm the constraint is wired correctly.
+
+**P2 — Nice to have, can defer:**
+
+- Sort stability across page boundaries: the test described in the QA report is valuable for confirming there are no off-by-one errors in offset arithmetic, but if the SQL ORDER BY is correct and deterministic, this will pass. Worth adding for regression confidence.
+- Dashboard net worth regression: this is the hardest to test in isolation without a full integration harness. The safe path is a manual smoke test: load the dashboard, confirm the net worth figure matches the sum of holdings. Automated testing of this would require either E2E tests or a server-side net worth computation that does not depend on the client-side merge.
+
+---
+
+### Security Assessment
+
+No new attack surface introduced. `limit` and `offset` are integer query params validated by Pydantic — invalid values return 422 before any DB query runs. The `user_id` filter comes from the JWT `sub` claim via `get_current_user_id`, not from the client. No concern.
+
+One point worth confirming: the COUNT(*) query uses the same `user_id` filter as the paginated query. If it did not — if it counted all rows in the table — it would leak information about other tenants' portfolio sizes. The implementation description implies the filter is applied, but this should be verified in the actual SQL emitted.
+
+---
+
+### Summary of Findings
+
+| Finding | Severity | Status |
+|---|---|---|
+| UUID bug in test fixture — all new tests uncollectable | Critical | Must fix |
+| Existing test suite pass status unconfirmed after envelope change | High | Needs confirmation |
+| `offset > total` behavior unverified | Medium | Should test |
+| `limit=0` 422 behavior unverified | Medium | Should test |
+| COUNT(*) user_id filter correctness | Medium | Should verify in code |
+| Sort stability across page boundaries | Low | Can defer |
+| Dashboard net worth regression | Low | Manual smoke test sufficient |
+
+---
+
+### Recommendation
+
+Do not merge until:
+1. `USER_P` UUID is corrected and all tests in `test_assets_pagination.py` collect and pass.
+2. `test_manual_assets.py` and `test_auth_isolation.py` are confirmed passing independently.
+3. `offset > total` and `limit=0` edge cases are covered by tests.
+
+Once those three items are resolved, this feature is ready to ship. The backend design is correct, the frontend strategy is correct, and the scope was kept tight throughout.

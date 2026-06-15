@@ -174,7 +174,7 @@ async def test_cross_user_isolation(api, admin_engine):
 
     resp_b = await api.as_user(USER_B).get("/assets")
     assert resp_b.status_code == 200
-    assert resp_b.json() == [], "User B must see none of User A's imported assets"
+    assert resp_b.json()["items"] == [], "User B must see none of User A's imported assets"
 
 
 async def test_template_download_authenticated(api):

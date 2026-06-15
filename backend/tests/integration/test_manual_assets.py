@@ -62,7 +62,8 @@ async def test_list_assets_includes_manual_holding(api):
 
     resp = await api.as_user(USER_A).get("/assets")
     assert resp.status_code == 200, resp.text
-    assets = resp.json()
+    data = resp.json()
+    assets = data["items"]
 
     manual = next((a for a in assets if a["asset_type"] == "MANUAL"), None)
     assert manual is not None, "No MANUAL asset in response"

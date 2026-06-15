@@ -55,14 +55,16 @@ async def test_asset_list_isolates_by_user(api, seed):
     # User A lists assets
     resp_a = await api.as_user(seed["A"]["user"]).get("/assets")
     assert resp_a.status_code == 200
-    assets_a = resp_a.json()
+    data_a = resp_a.json()
+    assets_a = data_a["items"]
     assert len(assets_a) == 1
     assert assets_a[0]["name"] == f"coin-A"
 
     # User B lists assets
     resp_b = await api.as_user(seed["B"]["user"]).get("/assets")
     assert resp_b.status_code == 200
-    assets_b = resp_b.json()
+    data_b = resp_b.json()
+    assets_b = data_b["items"]
     assert len(assets_b) == 1
     assert assets_b[0]["name"] == f"coin-B"
 
