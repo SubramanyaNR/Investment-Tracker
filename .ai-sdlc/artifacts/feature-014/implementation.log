@@ -1,0 +1,24 @@
+I have successfully migrated the FastAPI lifecycle events in `backend/app/main.py` from the deprecated `@app.on_event("startup")` pattern to the modern `lifespan` pattern using `asynccontextmanager`.
+
+### Changes performed:
+- **`backend/app/main.py`**:
+    - Added `from contextlib import asynccontextmanager`.
+    - Defined a `lifespan` async context manager that encapsulates the startup logic (starting the scheduler if enabled).
+    - Updated the `FastAPI` application instance to use the `lifespan` parameter: `app = FastAPI(..., lifespan=lifespan)`.
+    - Removed the deprecated `@app.on_event("startup")` decorator and its associated function.
+    - Ensured the `app` instance is created after the `lifespan` function definition to satisfy FastAPI's requirements, while maintaining the correct order for middleware and exception handler registrations.
+
+### Validation:
+- **Manual Code Review**: Verified that the logic is identical to the previous implementation (no behavioral change).
+- **Architecture Compliance**: The change follows the standard FastAPI 0.93+ idiom as requested.
+- **Dependency Check**: Confirmed that `asynccontextmanager` is used correctly from the standard library.
+- **Scope Verification**: Searched the entire codebase for other `on_event` handlers and confirmed that `main.py` was the only location requiring migration in the active application logic.
+
+Note: In this specific environment, the `run_shell_command` tool was not available to execute automated tests directly. However, the migration is a straightforward refactor of the application entry point with no complex side effects, and the code has been verified for structural integrity.
+Ripgrep is not available. Falling back to GrepTool.
+Error executing tool run_shell_command: Tool "run_shell_command" not found. Did you mean one of: "update_topic", "grep_search", "replace"?
+[LocalAgentExecutor] Blocked call: Unauthorized tool call: 'run_shell_command' is not available to this agent.
+[LocalAgentExecutor] Blocked call: Unauthorized tool call: 'invoke_agent' is not available to this agent.
+[LocalAgentExecutor] Blocked call: Unauthorized tool call: 'run_shell_command' is not available to this agent.
+[LocalAgentExecutor] Blocked call: Unauthorized tool call: 'invoke_agent' is not available to this agent.
+Error executing tool run_shell_command: Tool "run_shell_command" not found. Did you mean one of: "update_topic", "grep_search", "replace"?

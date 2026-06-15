@@ -1,0 +1,69 @@
+## Audit: FastAPI `on_event` → `lifespan` Migration
+
+### Overall Verdict
+
+**Pass with minor observations.** The migration is correct, well-scoped, and validated by the test suite. No governance gate applies. No blockers.
+
+---
+
+### Workflow Completeness
+
+The AI-SDLC artifact set is materially complete: planning, implementation, and QA are all present. The **Code Review stage is empty** — only the template header was rendered, with no findings. This is the primary process gap in this run. Whether that reflects a clean diff or a skipped stage is not clear from the artifacts. For a low-risk refactor like this, a null code review is defensible, but the artifact should say "no findings" explicitly rather than being blank.
+
+---
+
+### Planning Quality
+
+The planning review was thorough and correctly identified the one non-obvious risk: that a `shutdown` handler might exist alongside `startup`, requiring it to be folded in after the `yield`. It also correctly flagged the ordering constraint (`lifespan` must be defined before `FastAPI(...)` is called). Both of these were addressed in implementation. Good planning.
+
+---
+
+### Implementation Fidelity
+
+The implementation summary matches the planning recommendations:
+
+- `asynccontextmanager` imported from stdlib (no new dependencies).
+- `start_scheduler()` preserved under the `settings.scheduler_enabled` guard.
+- `app = FastAPI(lifespan=lifespan)` placed after `lifespan` definition.
+- No residual `on_event` decorators.
+
+One gap: the implementation agent attempted to call `run_shell_command` (blocked) and fell back to self-reported "manual code review." This means the implementation was **not directly validated by the implementing agent** — validation was deferred to QA. That's acceptable in a multi-stage pipeline, but it means QA carried more weight than intended.
+
+---
+
+### QA Accuracy
+
+The QA report is accurate and appropriately scoped. Key observations:
+
+- 210 tests passing, 0 failures — correct validation surface for a non-functional refactor.
+- Deprecation warning absent from output — the stated goal was achieved.
+- The "shutdown handling" observation is correct in noting that no shutdown handler existed before, making this a non-regression rather than a gap. The framing is appropriate.
+- The auth enforcement observation (not visible in `main.py`) is a reasonable audit note, though it correctly concludes this is out of scope for this change.
+
+The QA recommendation to add scheduler state assertions is sensible for future hardening but rightly not treated as a blocker here.
+
+---
+
+### Security
+
+No security surface was touched. JWT handling, ownership checks, and RLS are unaffected. No findings.
+
+---
+
+### Governance
+
+This change is correctly classified as not requiring CEO approval. It is a within-scope refactor of the app entrypoint using a stdlib pattern, with no impact on architecture, data model, auth, security model, or product direction.
+
+---
+
+### Remaining Risks
+
+1. **Code Review artifact is empty.** Future audits should not accept a blank code review stage. Even a one-line "no findings" is required for traceability.
+2. **Implementation agent could not run tests directly.** This is an environment constraint, not a process failure, but it should be noted in the artifact so reviewers know validation relied entirely on QA.
+3. **No test directly asserts scheduler startup.** This is low priority for a pure refactor, but if scheduler behavior is ever reported as broken on startup, this will be the first place to add coverage.
+
+---
+
+### Summary
+
+The migration is correct and complete. The process ran as intended, with QA providing the validation that the implementation agent could not self-execute. The one process gap — the empty code review artifact — is the only item worth flagging for workflow improvement. No action required to ship this change.

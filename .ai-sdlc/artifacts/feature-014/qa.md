@@ -1,0 +1,76 @@
+### WealthSignal QA Review Report: FastAPI `on_event` → `lifespan` Migration
+
+---
+
+#### ✅ **Passing Items**
+
+| **Item** | **Status** | **Details** |
+|----------|------------|-------------|
+| **`on_event` removal and `lifespan` implementation** | ✅ | Confirmed in `backend/app/main.py`. The `@app.on_event("startup")` logic is now encapsulated in the `lifespan` context manager. |
+| **Startup logic preserved** | ✅ | `start_scheduler()` is called conditionally (`settings.scheduler_enabled`) in `lifespan`, matching the original behavior. |
+| **App initialization order** | ✅ | `app = FastAPI(...)` is placed after the `lifespan` function, as required by FastAPI 0.93+ norms. |
+| **Warning removal** | ✅ | No `DeprecationWarning` for `@app.on_event` appears in pytest output. The "external warnings" (Pydantic, JWT key length) are unrelated to this change. |
+| **Integration test pass** | ✅ | All tests passed (`210 passed, 9 warnings`), including auth and route tests (e.g., `test_valid_token_accepted`). |
+| **Middleware and routes registered** | ✅ | Middleware (CORS, exception handlers), routers (auth, dashboard, health), and endpoints (e.g., `/health`) are present and wired per `main.py`. |
+
+---
+
+#### ⚠️ **No Critical Failures**
+
+- **No new errors in test output**: The pytest exit code is 0, with no test failures or errors directly attributable to this change.
+- **No deprecated `on_event` warnings**: The warning about `@app.on_event` is absent from output, confirming the migration resolved the deprecation issue.
+
+---
+
+#### 🚨 **Missing or Suboptimal Items**
+
+1. **Shutdown handling (if required)**
+   - **Status**: ⚠️ Unclear
+   - **Details**: 
+     - The `lifespan` context manager currently **only contains startup logic** (`yield` is reached without post-yield shutdown logic).
+     - Original `main.py` had **no `@app.on_event("shutdown")` handlers**, so this is not a regression.
+     - However, the implementation should be **prepared to recognize** shutdown logic if it exists in future changes. This is **not a blocker** for this specific task.
+
+2. **Auth enforcement in `main.py`**
+   - **Status**: ⚠️ Not directly visible in code
+   - **Details**:
+     - Claims of auth enforcement (e.g., JWT validation) are not visible in `main.py` (likely handled via middleware in routers).
+     - Tests in `test_auth_jwt.py` (e.g., `test_valid_token_accepted`) passed, implying middleware is correctly implemented **elsewhere**, but **code visibility** here is limited.
+   - **Recommendation**: Verify auth enforcement code in `app/api/auth/` or middleware files.
+
+3. **Test Coverage for Non-GUI Changes**
+   - **Status**: 🟡 Suboptimal
+   - **Details**: 
+     - No dedicated test checks for `lifespan` behavior (e.g., scheduler startup).
+     - Reliance on **indirect smoke tests** (`/health` or all-passing test suites) is acceptable for a non-functional refactor but not ideal for QA.
+   - **Recommendation**: Consider adding assertions on scheduler state in the future if concerns arise.
+
+---
+
+#### 📌 **Edge Case Coverage**
+
+- **No guaranteed shutdown logic**: Only applicable if `@app.on_event("shutdown")` existed before (it did not).
+- **Non-relevant edge cases**: Scheduler disabled (`settings.scheduler_enabled = False`) is covered via `if` guard in `lifespan`.
+
+---
+
+#### 🔒 **Security Lens**
+
+- **Auth/no auth**: No auth layer changes in this PR. Current JWT enforcement per test results works correctly.
+- **New surface**: None introduced. Code only involves app lifecycle.
+
+---
+
+### ✅ **Conclusion**
+
+| **Criteria** | **Verdict** |
+|-------------|-------------|
+| Does the code migrate `on_event` to `lifespan` correctly? | ✅ Yes |
+| Are tests passing, and is the warning gone? | ✅ Yes |
+| Are required endpoints and routers registered? | ✅ Yes |
+| Is auth enforcement working (indirectly implied)? | ✅ Yes (based on test results) |
+| Any blockers? | ❌ No |
+
+---
+
+**Final Verdict**: **Approve** the implementation. The code is clean, follows architecture norms, and satisfies all validating criteria. No critical flaws or missing tests to block QA sign-off.
