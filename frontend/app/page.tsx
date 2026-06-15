@@ -6,6 +6,7 @@ import {
   getSnapshots, getTransactions, getMfCurrentNav, getMarketFreshness, getXirr,
   getMonthlyPerformance, getDailyPerformance,
   importCsvDryRun, importCsvConfirm,
+  exportHoldings, exportTransactions,
   recalculateValuations, redeemMutualFund, sellCrypto, topUpSavings,
   type Asset, type CryptoMarket, type ImportConfirmResult, type ImportDryRunResult,
   type ImportError, type MarketFreshness, type MutualFundScheme, type PerformanceResult,
@@ -28,7 +29,7 @@ type Dashboard = {
   pnl_percent?: number;
   is_onboarding_eligible: boolean;
 };
-type Tab = "overview" | "holdings" | "transactions" | "import";
+type Tab = "overview" | "holdings" | "transactions" | "import" | "settings";
 
 // ── Config ─────────────────────────────────────────────────────────────────
 
@@ -111,6 +112,8 @@ export default function DashboardPage() {
   const [isDismissed, setIsDismissed] = useState(false);
   const [error,         setError]         = useState("");
   const [loading,       setLoading]       = useState(false);
+  const [exportError,   setExportError]   = useState("");
+  const [exportLoading, setExportLoading] = useState<"holdings" | "transactions" | null>(null);
   const [refreshing,    setRefreshing]    = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
 
@@ -500,14 +503,15 @@ export default function DashboardPage() {
         {/* ── Tab navigation ── */}
         <div className="card overflow-visible" style={{ overflow: "visible" }}>
           <nav className="tab-nav" role="tablist" aria-label="Portfolio sections">
-            {(["overview", "holdings", "transactions", "import"] as Tab[]).map((t) => (
+            {(["overview", "holdings", "transactions", "import", "settings"] as Tab[]).map((t) => (
               <button key={t} type="button" role="tab" aria-selected={tab === t}
                 className={`tab-btn ${tab === t ? "active" : ""}`}
                 onClick={() => setTab(t)}>
                 {t === "overview" ? "Overview"
                   : t === "holdings" ? `Holdings${assets.length > 0 ? ` · ${assets.length}` : ""}`
                   : t === "transactions" ? `Transactions${txTotal > 0 ? ` · ${txTotal}` : ""}`
-                  : "Import CSV"}
+                  : t === "import" ? "Import CSV"
+                  : "Settings"}
               </button>
             ))}
           </nav>
@@ -1139,6 +1143,65 @@ export default function DashboardPage() {
                   )}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ── Settings tab ── */}
+          {tab === "settings" && (
+            <div className="p-5 space-y-6" role="tabpanel">
+              <div>
+                <h2 className="section-title">Data Export</h2>
+                <p className="section-sub">Download your portfolio data for backup or analysis in Excel/Google Sheets.</p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="card p-4 space-y-3 bg-opacity-30">
+                  <div>
+                    <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Current Holdings</h3>
+                    <p className="text-[11px] mt-1" style={{ color: "var(--text-secondary)" }}>
+                      Export all active positions with latest valuations, units, and cost basis.
+                    </p>
+                  </div>
+                  <button type="button"
+                    disabled={exportLoading !== null}
+                    onClick={async () => {
+                      setExportError("");
+                      setExportLoading("holdings");
+                      try { await exportHoldings(); } catch { setExportError("Failed to download holdings. Please try again."); } finally { setExportLoading(null); }
+                    }}
+                    className="btn-refresh w-full justify-center text-amber-400 border-amber-400/30 hover:bg-amber-400/10 disabled:opacity-50">
+                    {exportLoading === "holdings" ? "Downloading…" : "Export Holdings (CSV)"}
+                  </button>
+                </div>
+
+                <div className="card p-4 space-y-3 bg-opacity-30">
+                  <div>
+                    <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Transaction History</h3>
+                    <p className="text-[11px] mt-1" style={{ color: "var(--text-secondary)" }}>
+                      Export full history of buys, sells, and deposits in chronological order.
+                    </p>
+                  </div>
+                  <button type="button"
+                    disabled={exportLoading !== null}
+                    onClick={async () => {
+                      setExportError("");
+                      setExportLoading("transactions");
+                      try { await exportTransactions(); } catch { setExportError("Failed to download transactions. Please try again."); } finally { setExportLoading(null); }
+                    }}
+                    className="btn-refresh w-full justify-center text-violet-400 border-violet-400/30 hover:bg-violet-400/10 disabled:opacity-50">
+                    {exportLoading === "transactions" ? "Downloading…" : "Export Transactions (CSV)"}
+                  </button>
+                </div>
+              </div>
+              {exportError && <p className="text-xs text-red-400 mt-2">{exportError}</p>}
+
+              <div className="pt-4 border-t border-default">
+                <h2 className="section-title text-red-400">Account</h2>
+                <button type="button" onClick={() => signOut()}
+                  className="mt-3 btn-refresh text-red-400 border-red-400/30 hover:bg-red-400/10">
+                  Sign Out
+                </button>
+              </div>
             </div>
           )}
         </div>

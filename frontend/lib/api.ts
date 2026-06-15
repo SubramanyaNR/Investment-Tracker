@@ -321,3 +321,47 @@ export async function topUpSavings(assetId: string, amount: number) {
     { amount },
   );
 }
+
+export async function exportHoldings() {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_BASE_URL}/export/holdings`, {
+    headers,
+  });
+  if (!res.ok) throw new Error(`Export holdings failed: ${res.status}`);
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const disposition = res.headers.get("Content-Disposition");
+  let filename = "wealthsignal_holdings.csv";
+  if (disposition && disposition.includes("filename=")) {
+    filename = disposition.split("filename=")[1].replace(/"/g, "");
+  }
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  window.URL.revokeObjectURL(url);
+  document.body.removeChild(a);
+}
+
+export async function exportTransactions() {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_BASE_URL}/export/transactions`, {
+    headers,
+  });
+  if (!res.ok) throw new Error(`Export transactions failed: ${res.status}`);
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const disposition = res.headers.get("Content-Disposition");
+  let filename = "wealthsignal_transactions.csv";
+  if (disposition && disposition.includes("filename=")) {
+    filename = disposition.split("filename=")[1].replace(/"/g, "");
+  }
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  window.URL.revokeObjectURL(url);
+  document.body.removeChild(a);
+}
