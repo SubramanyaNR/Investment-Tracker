@@ -70,15 +70,15 @@ async def export_seed(admin_engine):
         await conn.execute(sa.text("DELETE FROM assets WHERE user_id IN (:ua, :ub)"), {"ua": str(USER_A), "ub": str(USER_B)})
 
 
-async def test_export_holdings_unauthorized(api):
-    """QA1: 401 without token (holdings)"""
-    resp = await api.get("/export/holdings")
+async def test_export_holdings_unauthorized(anon_client):
+    """QA1: 401 without token (holdings) — uses real auth gate, not the override fixture"""
+    resp = await anon_client.get("/export/holdings")
     assert resp.status_code == 401
 
 
-async def test_export_transactions_unauthorized(api):
-    """QA3: 401 without token (transactions)"""
-    resp = await api.get("/export/transactions")
+async def test_export_transactions_unauthorized(anon_client):
+    """QA3: 401 without token (transactions) — uses real auth gate, not the override fixture"""
+    resp = await anon_client.get("/export/transactions")
     assert resp.status_code == 401
 
 

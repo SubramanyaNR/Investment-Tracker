@@ -1,4 +1,5 @@
 import sys
+import subprocess
 import yaml
 from pathlib import Path
 from datetime import datetime
@@ -68,10 +69,11 @@ def validate_required_files(paths):
     if missing:
         raise FileNotFoundError("Missing required files: " + ", ".join(missing))
 
-def write_prompt(prompt_name, artifact_dir, file_map):
+def write_prompt(prompt_name, artifact_dir, file_map, optional_file_map=None):
     """
     Validates existence of input files, reads them, and renders a prompt template.
-    file_map: dict of {placeholder: Path}
+    file_map: dict of {placeholder: Path} — all required
+    optional_file_map: dict of {placeholder: (Path, default_text)} — included only if file exists
     """
     input_files = list(file_map.values())
     validate_required_files(input_files)
@@ -83,6 +85,10 @@ def write_prompt(prompt_name, artifact_dir, file_map):
         placeholder: read_text(path)
         for placeholder, path in file_map.items()
     }
+
+    if optional_file_map:
+        for placeholder, (path, default) in optional_file_map.items():
+            replacements[placeholder] = read_text(path) if path.is_file() else default
 
     rendered = render_template(template_text, replacements)
     output_path = artifact_dir / f"{prompt_name}_prompt.md"
@@ -374,6 +380,29 @@ def generate_qa_prompt(workflow_dir):
             "{{INVESTOR_EXPERIENCE_CONTEXT}}": CONTEXT_DIR / "investor_experience.md",
             "{{PLANNING}}": workflow_dir / "planning.md",
             "{{IMPLEMENTATION}}": workflow_dir / "implementation.md"
+        },
+        optional_file_map={
+            "{{TEST_OUTPUT}}": (
+                workflow_dir / "test_output.md",
+                "*Test output not available — run QA via router to generate.*"
+            ),
+            "{{CODE_DIFF}}": (
+                workflow_dir / "code_diff.md",
+                "*Code diff not available — run QA via router to generate.*"
+            ),
+        }
+    )
+
+def generate_rework_prompt(workflow_dir):
+    write_prompt(
+        "rework",
+        workflow_dir,
+        {
+            "{{PRODUCT_CONTEXT}}": CONTEXT_DIR / "product.md",
+            "{{ARCHITECTURE_CONTEXT}}": CONTEXT_DIR / "architecture.md",
+            "{{PLANNING}}": workflow_dir / "planning.md",
+            "{{IMPLEMENTATION}}": workflow_dir / "implementation.md",
+            "{{FEEDBACK}}": workflow_dir / "revision_brief.md"
         }
     )
 
@@ -390,14 +419,77 @@ def generate_audit_prompt(workflow_dir):
             "{{PLANNING}}": workflow_dir / "planning.md",
             "{{IMPLEMENTATION}}": workflow_dir / "implementation.md",
             "{{QA}}": workflow_dir / "qa.md"
+        },
+        optional_file_map={
+            "{{CODE_REVIEW}}": (
+                workflow_dir / "code_review.md",
+                "*Code review not available (pre-v1.1 workflow).*"
+            )
         }
     )
+
+def run_qa_pre_hook(workflow_dir):
+    """
+    Runs before QA prompt generation.
+    1. Executes pytest and writes real test output to test_output.md.
+    2. Collects actual changed/new code (git diff + untracked files) into code_diff.md.
+    Qwen reviews real evidence, not just implementation notes.
+    """
+    repo_root = Path(__file__).resolve().parent.parent
+
+    # 1. Run pytest (unit + integration)
+    test_result = subprocess.run(
+        [".venv/bin/python", "-m", "pytest", "-q", "--tb=short"],
+        capture_output=True,
+        text=True,
+        cwd=str(repo_root / "backend"),
+    )
+    test_output = (test_result.stdout + test_result.stderr).strip()
+    (workflow_dir / "test_output.md").write_text(
+        f"## Pytest Results (exit code: {test_result.returncode})\n\n```\n{test_output}\n```\n",
+        encoding="utf-8",
+    )
+    print(f"QA pre-hook: pytest exit={test_result.returncode}")
+
+    # 2. Collect code changes: modified tracked files + new untracked files
+    code_sections = []
+
+    diff_result = subprocess.run(
+        ["git", "diff", "HEAD", "--unified=5", "--", "backend/", "frontend/"],
+        capture_output=True, text=True, cwd=str(repo_root),
+    )
+    if diff_result.stdout.strip():
+        code_sections.append(
+            f"## Modified Files (git diff HEAD)\n\n```diff\n{diff_result.stdout.strip()}\n```\n"
+        )
+
+    untracked_result = subprocess.run(
+        ["git", "ls-files", "--others", "--exclude-standard", "--", "backend/", "frontend/"],
+        capture_output=True, text=True, cwd=str(repo_root),
+    )
+    new_files = [f for f in untracked_result.stdout.strip().splitlines() if f]
+    for filepath in new_files:
+        full_path = repo_root / filepath
+        if full_path.is_file() and full_path.suffix in (".py", ".ts", ".tsx", ".js", ".jsx"):
+            try:
+                content = full_path.read_text(encoding="utf-8")
+                code_sections.append(f"## New File: {filepath}\n\n```\n{content}\n```\n")
+            except Exception:
+                pass
+
+    (workflow_dir / "code_diff.md").write_text(
+        "\n".join(code_sections) if code_sections else "No code changes detected.",
+        encoding="utf-8",
+    )
+    print(f"QA pre-hook: {len(new_files)} new files collected")
+
 
 def run_pipeline(command, workflow_dir):
     # Mapping of command to prompt generation function and output file
     pipeline_map = {
         "planning": (generate_planning_prompt, "planning.md"),
         "implementation": (generate_implementation_prompt, "implementation.md"),
+        "rework": (generate_rework_prompt, "implementation.md"),
         "qa": (generate_qa_prompt, "qa.md"),
         "audit": (generate_audit_prompt, "audit.md")
     }
@@ -407,7 +499,11 @@ def run_pipeline(command, workflow_dir):
         sys.exit(1)
         
     prompt_gen_func, output_filename = pipeline_map[command]
-    
+
+    # Pre-hook: run tests and collect real code before QA prompt is generated
+    if command == "qa":
+        run_qa_pre_hook(workflow_dir)
+
     # 1. Generate Prompt (uses existing logic and writes *_prompt.md)
     prompt_gen_func(workflow_dir)
         
@@ -479,6 +575,8 @@ if __name__ == "__main__":
                 generate_planning_prompt(workflow_dir)
             elif command == "implementation":
                 generate_implementation_prompt(workflow_dir)
+            elif command == "rework":
+                generate_rework_prompt(workflow_dir)
             elif command == "qa":
                 generate_qa_prompt(workflow_dir)
             elif command == "audit":
