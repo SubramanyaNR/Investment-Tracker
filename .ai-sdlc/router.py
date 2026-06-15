@@ -523,9 +523,11 @@ def run_pipeline(command, workflow_dir):
         print(str(exc))
         sys.exit(1)
         
-    # 4. Call adapter.run(prompt)
+    # 4. Call adapter.run(prompt) — stream output to log file for live monitoring
+    log_path = workflow_dir / f"{command}.log"
     print(f"Executing {command} with {model_name}...")
-    result = adapter.run(prompt_text)
+    print(f"Live log: {log_path}")
+    result = adapter.run(prompt_text, log_path=log_path)
     
     # 5. Write result to artifact file
     output_path = workflow_dir / output_filename

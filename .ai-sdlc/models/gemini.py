@@ -18,25 +18,39 @@ class GeminiAdapter(ModelAdapter):
     untrusted-directory refusal; cwd pins edits to the repo, not .ai-sdlc.
     """
 
-    def run(self, prompt: str) -> str:
+    def run(self, prompt: str, log_path: Path | None = None) -> str:
         if not shutil.which("gemini"):
             return "Error: 'gemini' CLI not found in PATH. Please install it to use this adapter."
 
         try:
-            result = subprocess.run(
+            proc = subprocess.Popen(
                 ["gemini", "--approval-mode", "auto_edit", "--skip-trust", "-p", prompt],
-                capture_output=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
                 text=True,
-                check=True,
                 cwd=str(_REPO_ROOT),
             )
-            
-            if not result.stdout.strip():
-                return "Error: Gemini CLI returned an empty response."
-                
-            return result.stdout.strip()
 
-        except subprocess.CalledProcessError as exc:
-            return f"Error executing Gemini CLI (exit code {exc.returncode}):\n{exc.stderr or exc.stdout}"
+            lines = []
+            log_file = open(log_path, "w", encoding="utf-8", buffering=1) if log_path else None
+            try:
+                for line in proc.stdout:
+                    lines.append(line)
+                    if log_file:
+                        log_file.write(line)
+                        log_file.flush()
+            finally:
+                if log_file:
+                    log_file.close()
+
+            proc.wait()
+            output = "".join(lines).strip()
+
+            if proc.returncode != 0:
+                return f"Error executing Gemini CLI (exit code {proc.returncode}):\n{output}"
+            if not output:
+                return "Error: Gemini CLI returned an empty response."
+            return output
+
         except Exception as exc:
             return f"Error: An unexpected error occurred while running Gemini CLI: {str(exc)}"
