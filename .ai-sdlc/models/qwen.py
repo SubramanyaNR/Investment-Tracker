@@ -44,43 +44,23 @@ class QwenAdapter(ModelAdapter):
 
         data = {
             "model": "qwen/qwen3-32b",
-            "stream": True,
             "messages": [{"role": "user", "content": prompt}],
         }
 
         req = urllib.request.Request(url, headers=headers, data=json.dumps(data).encode("utf-8"))
 
         try:
-            chunks = []
-            log_file = open(log_path, "w", encoding="utf-8", buffering=1) if log_path else None
-            try:
-                with urllib.request.urlopen(req, timeout=180) as response:
-                    for raw_line in response:
-                        line = raw_line.decode("utf-8").strip()
-                        if not line.startswith("data:"):
-                            continue
-                        payload = line[5:].strip()
-                        if payload == "[DONE]":
-                            break
-                        try:
-                            event = json.loads(payload)
-                        except json.JSONDecodeError:
-                            continue
-                        delta = event.get("choices", [{}])[0].get("delta", {})
-                        token = delta.get("content") or ""
-                        if token:
-                            chunks.append(token)
-                            if log_file:
-                                log_file.write(token)
-                                log_file.flush()
-            finally:
-                if log_file:
-                    log_file.write("\n")
-                    log_file.close()
+            with urllib.request.urlopen(req, timeout=180) as response:
+                body = json.loads(response.read().decode("utf-8"))
 
-            content = "".join(chunks).strip()
+            content = body["choices"][0]["message"]["content"].strip()
+
             if not content:
                 return "Error: OpenRouter API returned an empty response."
+
+            if log_path:
+                log_path.write_text(content + "\n", encoding="utf-8")
+
             return content
 
         except urllib.error.HTTPError as exc:

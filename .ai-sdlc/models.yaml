@@ -1,4 +1,5 @@
 planning: claude
 implementation: gemini
+rework: gemini
 qa: qwen
 audit: claude

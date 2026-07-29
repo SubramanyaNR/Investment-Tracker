@@ -1,0 +1,1 @@
+It seems write permissions to `.ai-sdlc/artifacts/` are being blocked. Could you grant write access to that directory (or approve the file write) so I can populate the request and kick off the planning stage?

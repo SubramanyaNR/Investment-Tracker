@@ -1,11 +1,10 @@
 workflow: feature
-id: feature-009
-stage: release_approval
+id: feature-004
+stage: planning
 status: active
-approved: true
-created_at: '2026-06-15T12:22:11.670599'
+approved: false
+created_at: '2026-06-11T17:28:11.650063'
 model_planning: claude
 model_implementation: gemini
-model_rework: gemini
 model_qa: qwen
 model_audit: claude

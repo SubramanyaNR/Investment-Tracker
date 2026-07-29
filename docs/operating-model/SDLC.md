@@ -82,19 +82,129 @@ See example output in `ROLES.md` under "Investor Experience Reviewer."
 (see `GOVERNANCE.md` for what is gated) until the CEO says "approved".
 
 ### Step 7 — Implementation
+
+#### 7a — Gemini Implementation
 After CEO approval, the implementation intent is handed off to **Gemini** (implementation specialist).
 Gemini implements **only** the approved scope — no unrelated improvements, no "while I'm here" refactors,
 no redesign unless requested. Claude monitors handoff and surfaces any implementation blockers to the CEO.
+
+#### 7b — Implementation Review Cycle (internal, automatic)
+
+After Gemini completes, Claude automatically performs a code review before handing off to QA. This cycle
+runs entirely within the Implementation stage — no new workflow stages are introduced.
+
+**Review level selection:**
+
+| Condition | Level |
+|---|---|
+| Release workflow | `ultra` |
+| Touches auth / JWT / sessions / permissions / RLS / OAuth / API security / encryption / secrets / infrastructure | `high` |
+| All other implementations | `medium` |
+
+Claude invokes: `/code-review <level>`
+
+**Security-guidance:** After `/code-review`, Claude additionally invokes `security-guidance` if the
+implementation touches authentication, authorization, identity, permissions, JWT, RLS, API security,
+encryption, secrets, OAuth, or infrastructure security. Skip for presentation-only, UI-only, styling,
+or UX work.
+
+**Finding classification:** Claude classifies every finding with a unique sequential ID and structured metadata:
+
+```
+CR-001  Severity: HIGH    Category: Security
+        Description: ...
+        Why it matters: ...
+        Suggested correction: ...
+
+CR-002  Severity: LOW     Category: Style
+        ...
+```
+
+Severity: `LOW` | `MEDIUM` | `HIGH` | `CRITICAL`
+
+Category: `Bug` | `Logic` | `Maintainability` | `Performance` | `Security` | `Architecture` | `Readability` | `Style`
+
+**`code_review.md`:** Claude writes all classified findings to `code_review.md` after every review —
+including clean reviews. A clean review is evidence that implementation quality was assessed. Format:
+
+```
+# Code Review
+
+**Workflow:** <id>
+**Review Level:** <level>
+**Reviewed At:** <timestamp>
+
+## Summary
+<one-paragraph summary>
+
+## Findings
+<CR-NNN blocks, or "No findings identified.">
+
+## Verification
+<populated after each revision cycle — see below>
+```
+
+**Allowed automatic fixes (Claude only):** Purely mechanical changes equivalent to formatter/linter behaviour:
+whitespace, blank lines, import ordering, formatting, documentation formatting. If any finding requires
+engineering judgement, Claude must NOT modify code. Implementation ownership belongs entirely to Gemini.
+
+**Revision Brief:** If non-mechanical findings exist (any MEDIUM/HIGH/CRITICAL, or a LOW requiring code
+changes), Claude generates a focused `revision_brief.md` containing only the findings Gemini must address
+— summary, finding IDs, severity, required change, and acceptance criteria per finding. This is a focused
+implementation task, not the full `code_review.md`.
+
+Claude then invokes: `python .ai-sdlc/router.py run rework <workflow-id>`
+
+Gemini reads the brief and rewrites `implementation.md` with all corrections applied. Git history
+preserves intermediate states; the artifact always represents the latest implementation.
+
+**Verification:** After each revision Claude verifies every finding in the brief:
+
+| Status | Meaning |
+|---|---|
+| `Resolved` | Fully addressed |
+| `Partially Resolved` | Partially addressed — describe what remains |
+| `Not Resolved` | Not addressed |
+
+Claude appends a Verification block to `code_review.md`:
+
+```
+## Verification — Revision Cycle 1
+
+| ID | Status | Notes |
+|---|---|---|
+| CR-001 | Resolved | — |
+| CR-002 | Partially Resolved | X still present in file Y |
+```
+
+**Revision cycles:** If findings remain `Partially Resolved` or `Not Resolved`, Claude generates a new
+Revision Brief containing only the unresolved findings, triggers another `rework` cycle, and appends
+Revision Cycle 2 (3, …) to `code_review.md`. There is no artificial limit on cycles. The loop continues
+until all MEDIUM/HIGH/CRITICAL findings are `Resolved` and all LOW findings are `Resolved` or explicitly
+accepted by Claude with a noted rationale — at which point the workflow advances to QA.
+
+If cycles are not converging, Claude surfaces the remaining findings to the CEO and awaits direction.
+
+**Claude implementation boundaries — mandatory:**
+Claude must never rewrite, refactor, optimize, or redesign Gemini's code. Claude classifies, briefs, and
+verifies. Gemini owns every line of implementation code.
 
 ### Step 8 — QA
 Gemini's implementation is handed off to **Qwen** (QA specialist) for test execution and validation.
 Qwen runs test scenarios, edge cases, regression checks, and re-validates auth + multi-tenancy (SECURITY-AUDIT §7 matrices).
 QA artifacts are stored and surface any failures to Claude for triage.
 
-### Step 9 — Audit & Final Approval
-Claude audits the implementation + QA results against the original approval scope. If all validation passes:
-- Implementation is complete; surfaces it back to CEO
-- If failures exist, Claude reports them to CEO with recommended actions (rework, waive, or abandon)
+### Step 9 — Audit
+Claude audits the implementation + QA results against the original approval scope. Claude produces the
+complete engineering assessment covering: implementation correctness, code review findings, QA results,
+security posture, and any unresolved risks. If failures exist, Claude reports them with recommended
+actions (rework, waive, or abandon). The audit report is the CEO's primary input for Manual Validation.
+
+### Step 10 — Manual Validation
+The CEO performs User Acceptance Testing after receiving the complete engineering assessment from Audit.
+Manual Validation validates the feature end-to-end — implementation, QA findings, and Audit findings —
+from the perspective of an investor using the product. Only after Manual Validation passes does the
+workflow advance to Release Approval.
 
 ## Post-implementation validation (non-negotiable)
 
@@ -110,7 +220,7 @@ Encoded in `runbooks/LOCAL-DEV.md`. Qwen executes these as part of Step 8 QA; Cl
 
 ## AI-SDLC Multi-Agent Workflow Execution
 
-The AI-SDLC framework automates Steps 1–6 (review), hands off Steps 7–8 (implementation + QA) to specialist models, then Claude returns for Step 9 (audit).
+The AI-SDLC framework automates Steps 1–6 (review), hands off Steps 7–8 (implementation + QA) to specialist models, then Claude returns for Step 9 (audit). Step 10 (Manual Validation) is CEO-performed UAT after the full engineering assessment is complete.
 
 ### Workflow Types
 
@@ -127,11 +237,12 @@ Every feature/architecture/security/release/incident workflow follows this seque
 
 1. **Planning** — Claude reasons through the 7 lenses, produces review artifacts
 2. **CEO Approval Gate** — STOP. Wait for explicit "approved"
-3. **Implementation** — Gemini takes the approved scope and implements it
-4. **QA** — Qwen validates the implementation (tests, edge cases, regression, auth/tenancy matrices)
-5. **Audit** — Claude audits implementation + QA results against approval scope
-6. **CEO Approval Gate** — STOP. Wait for explicit "approved" to ship
-7. **Complete** — Feature lands; artifacts archived
+3. **Implementation** — Gemini implements the approved scope; Claude performs an automatic code review and revision cycle (see Step 7b) before advancing to QA
+4. **QA** — Qwen validates the implementation independently (tests, edge cases, regression, auth/tenancy matrices)
+5. **Audit** — Claude audits implementation + QA results against approval scope; produces the complete engineering assessment
+6. **Manual Validation** — CEO performs UAT with full audit report in hand; validates implementation, QA findings, and audit findings end-to-end
+7. **CEO Approval Gate** — STOP. Wait for explicit "approved" to ship
+8. **Complete** — Feature lands; artifacts archived
 
 No automatic advancement between stages. Every gate is explicit.
 
@@ -146,11 +257,13 @@ Artifacts include:
 - `request.md` — original user request (preserved in full)
 - `planning.md` — the 7-lens review + verdicts
 - `planning_prompt.md` — the exact prompt used for planning
-- `implementation.md` — what Gemini produced
+- `implementation.md` — what Gemini produced (always reflects latest state after rework)
 - `implementation_prompt.md` — the implementation brief
+- `code_review.md` — Claude's classified findings + per-cycle verification results
+- `revision_brief.md` — focused rework task sent to Gemini (present only when findings required revision)
 - `qa.md` — Qwen's test results + validation matrix
 - `qa_prompt.md` — the QA brief
-- `audit.md` — Claude's final audit + recommendations
+- `audit.md` — Claude's complete engineering assessment (implementation + code review + QA)
 - `status.yaml` — workflow metadata (stage, models, timestamps)
 
 ### Model Routing
@@ -161,6 +274,7 @@ Model assignments are defined in `.ai-sdlc/models.yaml`:
 |---|---|---|
 | Planning + Audit | Claude | Orchestrator; reasons through all 7 lenses |
 | Implementation | Gemini (default) | Implements the approved scope |
+| Implementation Rework | Gemini (default) | Revises implementation based on code review findings |
 | QA | Qwen (Alibaba Qwen 3.2B via OpenRouter) | Tests, validates, re-runs SECURITY-AUDIT §7 |
 
 **Model ownership is mandatory.** If an assigned model is unavailable, misconfigured, returns only placeholder output, or errors out:

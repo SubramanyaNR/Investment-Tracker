@@ -3,6 +3,6 @@ stages:
   - approval
   - implementation
   - qa
-  - manual_validation
   - audit
+  - manual_validation
   - release_approval

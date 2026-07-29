@@ -21,5 +21,8 @@
 ## Implementation
 {{IMPLEMENTATION}}
 
+## Code Review
+{{CODE_REVIEW}}
+
 ## QA
 {{QA}}

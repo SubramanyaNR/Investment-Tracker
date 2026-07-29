@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Optional
 from .base import ModelAdapter
 
-# Repo root is two levels up from this file (.ai-sdlc/models/gemini.py).
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 class GeminiAdapter(ModelAdapter):
@@ -24,31 +23,20 @@ class GeminiAdapter(ModelAdapter):
             return "Error: 'gemini' CLI not found in PATH. Please install it to use this adapter."
 
         try:
-            proc = subprocess.Popen(
+            result = subprocess.run(
                 ["gemini", "--approval-mode", "auto_edit", "--skip-trust", "-p", prompt],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
+                capture_output=True,
                 text=True,
                 cwd=str(_REPO_ROOT),
             )
 
-            lines = []
-            log_file = open(log_path, "w", encoding="utf-8", buffering=1) if log_path else None
-            try:
-                for line in proc.stdout:
-                    lines.append(line)
-                    if log_file:
-                        log_file.write(line)
-                        log_file.flush()
-            finally:
-                if log_file:
-                    log_file.close()
+            output = (result.stdout + result.stderr).strip()
 
-            proc.wait()
-            output = "".join(lines).strip()
+            if log_path and output:
+                log_path.write_text(output + "\n", encoding="utf-8")
 
-            if proc.returncode != 0:
-                return f"Error executing Gemini CLI (exit code {proc.returncode}):\n{output}"
+            if result.returncode != 0:
+                return f"Error executing Gemini CLI (exit code {result.returncode}):\n{output}"
             if not output:
                 return "Error: Gemini CLI returned an empty response."
             return output

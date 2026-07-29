@@ -34,6 +34,7 @@
 | A10a | Snapshot atomic upsert via `ON CONFLICT DO UPDATE` (L6 — part 1) | ✅ | `d04a7f0` | Merged to master |
 | A10b | Holding uniqueness constraints + `IntegrityError` race-safe merge (L6 — part 2) | ✅ | `beda9db` | Merged to master |
 | A11 | Transaction pagination (`limit`/`offset`, envelope response) + L6 doc closure | ✅ | `b9f71a1` | Merged to master |
+| A12 | Transaction date filtering (`from`/`to` inclusive) | ✅ | | Extension of A11 |
 
 ---
 
