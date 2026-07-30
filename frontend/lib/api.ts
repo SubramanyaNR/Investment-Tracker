@@ -104,6 +104,13 @@ export type TxPage = {
   offset: number;
 };
 
+export type AssetPage = {
+  items: Asset[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
 export type MarketFreshness = {
   crypto_updated_at: number | null;  // Unix epoch seconds, null if no fetch yet
   mf_updated_at: number | null;
