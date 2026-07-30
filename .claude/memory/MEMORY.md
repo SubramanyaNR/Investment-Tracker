@@ -12,3 +12,5 @@
 - [Gate-hook substring false-positive](gate-hook-substring-false-positive.md) — low-pri: gate.sh substring-matches "alembic upgrade"/"make migrate" incl. commit messages; deferred fix
 - [Backlog: intraday prices for 1D chart](backlog-intraday-prices.md) — 1D range on Net Worth chart is meaningless until intraday prices stored; crypto-only via CoinGecko hourly; MF NAV is once-daily by AMFI definition
 - [Backlog: historical net worth from transactions](backlog-historical-networth-from-transactions.md) — reconstruct portfolio_snapshots from transaction history + historical prices (CoinGecko max, MFAPI, FI formula); full investment journey view
+- [e2e test corrupted real BTC holding](e2e-test-corrupted-real-btc-holding.md) — 2026-07-30: harness assumed "bitcoin" was unheld, merged test buys into real BTC via POST /assets; fixed + harness now checks live, never hardcode "safe" identifiers
+- [MFAPI unreachable from this VM](mfapi-unreachable-from-this-vm.md) — api.mfapi.in TCP connect hangs (egress/firewall issue post-migration), while CoinGecko + general internet work; check this before assuming a code regression on MF search failures

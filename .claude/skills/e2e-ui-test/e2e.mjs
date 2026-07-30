@@ -26,11 +26,45 @@ const addBtn = () => page.getByRole('button', { name: /^Add(ing)?/ });
 const fillName = (n) => page.getByPlaceholder(/e\.g\. Bitcoin/).fill(n);
 const waitRow = (n, t = 15000) => page.getByText(n, { exact: true }).first().waitFor({ timeout: t });
 
+// POST /assets is get-or-create for MF/crypto: a buy against an already-held scheme_code/coingecko_id
+// merges (weighted-average) into that real holding instead of creating a new one. So every identifier
+// this harness uses must be checked against the live portfolio first — never hardcoded as "safe".
+const apiFetch = (path) => page.evaluate(async (p) => {
+  let token = null;
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.includes('auth-token')) {
+      try { token = JSON.parse(localStorage.getItem(k)).access_token; } catch { /* ignore */ }
+    }
+  }
+  const res = await fetch(p, token ? { headers: { Authorization: `Bearer ${token}` } } : {});
+  return res.json();
+}, path);
+
 try {
-  // 1. Dashboard
+  // 0. Sign in (Supabase email/password) if a login screen is shown
   await page.goto(BASE, { waitUntil: 'networkidle', timeout: 30000 });
+  const emailInput = page.getByPlaceholder('Email');
+  if (await emailInput.isVisible().catch(() => false)) {
+    if (!process.env.E2E_EMAIL || !process.env.E2E_PASSWORD) {
+      throw new Error('Login screen shown but E2E_EMAIL/E2E_PASSWORD not set');
+    }
+    await emailInput.fill(process.env.E2E_EMAIL);
+    await page.getByPlaceholder('Password').fill(process.env.E2E_PASSWORD);
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.getByText('Net Worth').first().waitFor({ timeout: 15000 });
+    rec('Sign in', true);
+  }
+
+  // 1. Dashboard
   await page.getByText('Net Worth').first().waitFor({ timeout: 15000 });
   rec('Dashboard loads (KPIs)', await page.getByText('Profit / Loss').first().isVisible());
+
+  // Held identifiers — computed live, every run, from whatever account this actually is
+  const currentAssets = await apiFetch('/api/assets?limit=200');
+  const assetItems = Array.isArray(currentAssets) ? currentAssets : currentAssets.items;
+  const heldCoinIds = assetItems.filter(a => a.holding?.coingecko_id).map(a => a.holding.coingecko_id);
+  const heldSchemeCodes = assetItems.filter(a => a.mf_holding?.scheme_code).map(a => a.mf_holding.scheme_code);
 
   // 2. Theme toggle
   await page.getByRole('button', { name: 'Light mode' }).click(); await sleep(150);
@@ -46,13 +80,22 @@ try {
   await type('MUTUAL_FUND'); const m = await page.getByPlaceholder('50000').isVisible();
   rec('Asset-type switching', c && f && m);
 
-  // 4. MF search + add (parag = not a held scheme; safe)
+  // 4. MF search + add — pick the first search result whose scheme_code is NOT already held
   await type('MUTUAL_FUND');
   await page.locator('.selector-trigger').first().click();
   await page.getByPlaceholder(/Type 3\+ chars/).fill('parag');
   await page.locator('button[role="option"]').first().waitFor({ timeout: 20000 });
-  rec('MF search returns results', (await page.locator('button[role="option"]').count()) > 0);
-  await page.locator('button[role="option"]').first().click();
+  const mfOptions = page.locator('button[role="option"]');
+  const mfCount = await mfOptions.count();
+  rec('MF search returns results', mfCount > 0);
+  let mfIndex = -1;
+  for (let i = 0; i < mfCount; i++) {
+    const text = await mfOptions.nth(i).innerText();
+    const code = (text.match(/Code:\s*(\S+)/) || [])[1];
+    if (code && !heldSchemeCodes.includes(code)) { mfIndex = i; break; }
+  }
+  if (mfIndex === -1) throw new Error('Every "parag" MF search result is already held — no safe scheme to test with');
+  await mfOptions.nth(mfIndex).click();
   await sleep(400);
   await fillName(`${PREFIX} MF`);
   await page.getByPlaceholder('50000').fill('50000');
@@ -62,17 +105,19 @@ try {
   await addBtn().click(); await waitRow(`${PREFIX} MF`);
   rec('Add Mutual Fund', true);
 
-  // 5. Crypto add (bitcoin = not held; safe)
+  // 5. Crypto add — pick the first top-10 coin whose coingecko_id is NOT already held
+  const topCoins = await apiFetch('/api/market/crypto/top');
+  const safeCoin = topCoins.find(coin => !heldCoinIds.includes(coin.id));
+  if (!safeCoin) throw new Error('Every top-10 coin is already held — no safe coin to test with');
+  const cryptoLabel = `${PREFIX} ${safeCoin.symbol.toUpperCase()}`;
   await type('CRYPTO');
-  await fillName(`${PREFIX} BTC`);
+  await fillName(cryptoLabel);
   await page.locator('.selector-trigger').first().click();
-  await page.getByPlaceholder('Search coins…').fill('bitcoin');
-  await page.locator('button[role="option"]').first().waitFor({ timeout: 20000 });
-  await page.locator('button[role="option"]').first().click();
+  await page.getByRole('option', { name: safeCoin.name }).first().click();
   await page.getByPlaceholder('0.05').fill('0.01');
   await page.getByPlaceholder('9200000').fill('5000000');
-  await addBtn().click(); await waitRow(`${PREFIX} BTC`);
-  rec('Add Crypto', true);
+  await addBtn().click(); await waitRow(cryptoLabel);
+  rec('Add Crypto', true, safeCoin.id);
 
   // 6. FD / RD / PPF
   for (const [t, name, prin, rate, date] of [
@@ -90,7 +135,7 @@ try {
   rec('Add FD/RD/PPF', true);
 
   // 7. List + refresh + sell + transactions
-  const present = await Promise.all(['MF', 'BTC', 'FD', 'RD', 'PPF'].map(s => page.getByText(`${PREFIX} ${s}`, { exact: true }).first().isVisible()));
+  const present = await Promise.all([`${PREFIX} MF`, cryptoLabel, `${PREFIX} FD`, `${PREFIX} RD`, `${PREFIX} PPF`].map(s => page.getByText(s, { exact: true }).first().isVisible()));
   rec('Asset list shows all', present.every(Boolean), present.join(','));
 
   await page.getByRole('button', { name: 'Refresh live prices' }).click();

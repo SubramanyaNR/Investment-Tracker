@@ -3,8 +3,8 @@
 # makes Playwright resolvable from frontend/, ensures chromium, runs from the
 # frontend dir (ESM resolves node_modules there), cleans up the temp copy.
 set -uo pipefail
-FRONTEND=/opt/investment-tracker/frontend
 SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+FRONTEND="$(cd "$SKILL_DIR/../../../frontend" && pwd)"
 BASE_URL="${1:-http://127.0.0.1:3000}"
 
 # 1. Make `playwright` importable from frontend/node_modules.
