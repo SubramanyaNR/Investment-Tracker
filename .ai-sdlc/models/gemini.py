@@ -1,3 +1,4 @@
+import os
 import subprocess
 import shutil
 from pathlib import Path
@@ -5,6 +6,21 @@ from typing import Optional
 from .base import ModelAdapter
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+_ENV_FILE = Path(__file__).parent.parent / ".env"
+
+
+def _load_env() -> dict:
+    """Merge .ai-sdlc/.env (GEMINI_API_KEY, GEMINI_MODEL, ...) into the subprocess environment.
+    The gemini CLI reads these from its process env, not from this repo's .env files directly."""
+    env = os.environ.copy()
+    if _ENV_FILE.is_file():
+        for line in _ENV_FILE.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, _, v = line.partition("=")
+            env[k.strip()] = v.strip().strip('"').strip("'")
+    return env
 
 class GeminiAdapter(ModelAdapter):
     """
@@ -28,6 +44,7 @@ class GeminiAdapter(ModelAdapter):
                 capture_output=True,
                 text=True,
                 cwd=str(_REPO_ROOT),
+                env=_load_env(),
             )
 
             output = (result.stdout + result.stderr).strip()

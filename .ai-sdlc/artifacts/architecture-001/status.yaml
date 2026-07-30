@@ -1,0 +1,14 @@
+workflow: architecture
+id: architecture-001
+stage: planning
+status: cancelled
+approved: false
+cancelled_reason: Superseded by founder decision (2026-07-30) to pivot away from Supabase entirely
+  (self-hosted Postgres + custom single-user auth) and away from hosted-SaaS direction toward an
+  open-source self-hosted project. See architecture-002.
+created_at: '2026-07-30T10:32:18.396551'
+model_planning: claude
+model_implementation: gemini
+model_rework: gemini
+model_qa: qwen
+model_audit: claude

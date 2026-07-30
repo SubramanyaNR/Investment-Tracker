@@ -1,0 +1,43 @@
+# Sandbox Postgres for the OSS self-hosted pivot (architecture-002, Phase 1).
+#
+# This is an ISOLATED dev target, not wired into the running app. The live app keeps
+# running against Supabase (docker-compose.yml, backend/.env) untouched. Phase 2 will
+# build and test the new custom auth against this database; a later, separately-gated
+# phase covers migrating real data and cutting the running app over to it.
+#
+# Usage:
+#   docker compose -f docker-compose.selfhost.yml up -d
+#   docker compose -f docker-compose.selfhost.yml down          # stop, keep data
+#   docker compose -f docker-compose.selfhost.yml down -v       # stop, wipe sandbox data
+#
+# Applying the existing Alembic migrations against this sandbox (proves the schema
+# stands up cleanly on vanilla Postgres, no Supabase-specific dependency):
+#   cd backend && source .venv/bin/activate
+#   DATABASE_URL=postgresql+asyncpg://selfhost_user:selfhost_pass@localhost:5432/investment_tracker_selfhost \
+#   ADMIN_DATABASE_URL=postgresql+asyncpg://selfhost_user:selfhost_pass@localhost:5432/investment_tracker_selfhost \
+#   DB_SSL= \
+#   alembic upgrade head
+#
+# The DATABASE_URL/ADMIN_DATABASE_URL/DB_SSL overrides above are process-env only —
+# they do NOT touch backend/.env, so the real running app is unaffected.
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: investment_tracker_selfhost_postgres
+    environment:
+      POSTGRES_USER: selfhost_user
+      POSTGRES_PASSWORD: selfhost_pass
+      POSTGRES_DB: investment_tracker_selfhost
+    ports:
+      - "5432:5432"
+    volumes:
+      - investment_tracker_selfhost_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U selfhost_user -d investment_tracker_selfhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  investment_tracker_selfhost_data:

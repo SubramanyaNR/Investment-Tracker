@@ -1,0 +1,13 @@
+workflow: architecture
+id: architecture-002
+stage: implementation
+status: active
+approved: true
+phase1_note: Implemented directly by Claude (Gemini hit daily free-tier quota exhaustion), not via
+  the automated model_implementation adapter. See implementation.md.
+created_at: '2026-07-30T10:41:26.303393'
+model_planning: claude
+model_implementation: gemini
+model_rework: gemini
+model_qa: qwen
+model_audit: claude
