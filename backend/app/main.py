@@ -2,13 +2,15 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from app.api.auth import bootstrap_admin_user, router as auth_router
 from app.api.dashboard import router as dashboard_router
 from app.api.assets import router as assets_router
 from app.api.insights import router as insights_router
 
+from app.core.auth import csrf_check
 from app.core.config import settings
 from app.core.observability import log_event, redact
 from app.core.ratelimit import rate_limit_user
@@ -28,6 +30,7 @@ from app.api.export import router as export_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Schema is managed by Alembic — run `alembic upgrade head` on deploy, not here.
+    await bootstrap_admin_user()
     if settings.scheduler_enabled:
         start_scheduler()
     yield
@@ -43,6 +46,27 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def csrf_middleware(request: Request, call_next):
+    # Double-submit cookie: applies globally so no router individually opts in
+    # or forgets to. /auth/login is exempt (no session exists yet to compare
+    # against); every other unsafe-method request must present a matching pair.
+    # Caught and converted here rather than left to bubble up — HTTPExceptions
+    # raised inside @app.middleware("http") aren't reliably caught by FastAPI's
+    # route-level exception handling.
+    try:
+        csrf_check(
+            request.method,
+            request.url.path,
+            request.cookies.get("access_token") is not None,
+            request.cookies.get("csrf_token"),
+            request.headers.get("x-csrf-token"),
+        )
+    except HTTPException as exc:
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+    return await call_next(request)
 
 
 @app.middleware("http")
@@ -80,6 +104,7 @@ async def health():
 # /market/* is public and rate-limited per-IP inside its router.
 _per_user = [Depends(rate_limit_user("rl_user_general", "general"))]
 
+app.include_router(auth_router)   # public: login must be reachable pre-auth; own IP rate limit
 app.include_router(dashboard_router, dependencies=_per_user)
 app.include_router(assets_router, dependencies=_per_user)
 app.include_router(insights_router, dependencies=_per_user)

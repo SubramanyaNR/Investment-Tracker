@@ -1,14 +1,19 @@
 # Sandbox Postgres for the OSS self-hosted pivot (architecture-002, Phase 1).
 #
-# This is an ISOLATED dev target, not wired into the running app. The live app keeps
-# running against Supabase (docker-compose.yml, backend/.env) untouched. Phase 2 will
-# build and test the new custom auth against this database; a later, separately-gated
-# phase covers migrating real data and cutting the running app over to it.
+# This is an ISOLATED dev target, not wired into the running app. Auth + the real
+# cutover now run against docker-compose.local.yml's distinct container instead
+# (architecture-002 Phase 2/3, feature-017) — this sandbox stays around only as a
+# disposable target for future migration dry-runs.
+#
+# IMPORTANT: always pass -p to avoid Compose's default (directory-name-derived)
+# project name colliding with docker-compose.local.yml's containers — this has
+# already happened once (an `up` on one file silently recreated/removed the
+# other's container, since both defaulted to the same project name).
 #
 # Usage:
-#   docker compose -f docker-compose.selfhost.yml up -d
-#   docker compose -f docker-compose.selfhost.yml down          # stop, keep data
-#   docker compose -f docker-compose.selfhost.yml down -v       # stop, wipe sandbox data
+#   docker compose -p investment-tracker-selfhost -f docker-compose.selfhost.yml up -d
+#   docker compose -p investment-tracker-selfhost -f docker-compose.selfhost.yml down        # stop, keep data
+#   docker compose -p investment-tracker-selfhost -f docker-compose.selfhost.yml down -v     # stop, wipe sandbox data
 #
 # Applying the existing Alembic migrations against this sandbox (proves the schema
 # stands up cleanly on vanilla Postgres, no Supabase-specific dependency):
@@ -30,7 +35,7 @@ services:
       POSTGRES_PASSWORD: selfhost_pass
       POSTGRES_DB: investment_tracker_selfhost
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - investment_tracker_selfhost_data:/var/lib/postgresql/data
     healthcheck:

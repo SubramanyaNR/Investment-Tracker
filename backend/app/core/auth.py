@@ -1,83 +1,121 @@
+import hashlib
+import secrets
 import time
 import uuid
+from datetime import datetime, timedelta, timezone
 
+import bcrypt
 import jwt
-from fastapi import Depends, HTTPException
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jwt import PyJWKClient, PyJWKClientConnectionError, PyJWKClientError, get_unverified_header
+from fastapi import Cookie, HTTPException
 
 from app.core.config import settings
 from app.core.observability import log_event
 
-# Supabase rotates its asymmetric signing keys; PyJWKClient caches the fetched
-# JWKS and re-fetches on an unknown kid, so rotation needs no redeploy.
-_jwk_client = PyJWKClient(settings.supabase_jwks_url, cache_keys=True)
-
-_bearer = HTTPBearer(auto_error=False)
-
-# kid -> monotonic() expiry. Only non-empty, confirmed-bad kids are stored.
-# Never cache empty-string: absence of a kid field is not evidence the kid is invalid.
-_negative_cache: dict[str, float] = {}
+ACCESS_COOKIE = "access_token"
+REFRESH_COOKIE = "refresh_token"
+CSRF_COOKIE = "csrf_token"
 
 
-def _in_negative_cache(kid: str) -> bool:
-    entry = _negative_cache.get(kid)
-    if entry is None:
+# ── Password hashing ──────────────────────────────────────────────────────
+
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+
+def verify_password(password: str, password_hash: str) -> bool:
+    try:
+        return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
+    except ValueError:
+        # Malformed hash (shouldn't happen outside a corrupted DB row) — fail closed.
         return False
-    if entry > time.monotonic():
-        return True
-    _negative_cache.pop(kid, None)   # lazy-evict expired entry
-    return False
 
 
-def _add_to_negative_cache(kid: str) -> None:
-    if len(_negative_cache) >= settings.jwks_negative_cache_maxsize:
-        _negative_cache.pop(next(iter(_negative_cache)), None)  # evict oldest
-    _negative_cache[kid] = time.monotonic() + settings.jwks_negative_cache_ttl
+# ── Access token (short-lived JWT, HS256) ─────────────────────────────────
+
+def create_access_token(user_id: uuid.UUID) -> str:
+    now = datetime.now(timezone.utc)
+    claims = {
+        "sub": str(user_id),
+        "iat": now,
+        "exp": now + timedelta(seconds=settings.access_token_ttl_seconds),
+    }
+    return jwt.encode(claims, settings.jwt_secret, algorithm="HS256")
 
 
-def get_current_user_id(
-    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
-) -> uuid.UUID:
-    if credentials is None:
+def get_current_user_id(access_token: str | None = Cookie(default=None)) -> uuid.UUID:
+    if access_token is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
-
-    token = credentials.credentials
-
-    # Extract kid from the unverified header — pure base64/JSON parse, no network.
-    # DecodeError (malformed token) is a PyJWTError subclass; catch it early so the
-    # negative-cache check and JWKS path are never reached for garbage input.
     try:
-        kid = get_unverified_header(token).get("kid") or ""
-    except jwt.PyJWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-
-    # Short-circuit: kid already confirmed absent from JWKS — no upstream fetch needed.
-    # Empty kid is never cached: absence of a kid field ≠ confirmed bad kid.
-    if kid and _in_negative_cache(kid):
-        log_event("auth.negative_cache.hit", kid=kid[:8])
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-
-    # Generic 401 on every failure path — specific reason is an internal detail.
-    try:
-        signing_key = _jwk_client.get_signing_key_from_jwt(token).key
         claims = jwt.decode(
-            token,
-            signing_key,
-            algorithms=["ES256"],
-            issuer=settings.supabase_issuer,
-            audience=settings.supabase_jwt_audience,
-            options={"require": ["exp", "sub", "iss", "aud"]},
+            access_token,
+            settings.jwt_secret,
+            algorithms=["HS256"],
+            options={"require": ["exp", "sub"]},
         )
         return uuid.UUID(claims["sub"])
-    except PyJWKClientConnectionError:
-        # Network failure reaching Supabase JWKS endpoint — do NOT cache negatively;
-        # the kid may be valid and the outage transient.
+    except (jwt.PyJWTError, ValueError, TypeError):
         raise HTTPException(status_code=401, detail="Invalid or expired token")
-    except PyJWKClientError:
-        # kid confirmed absent from JWKS after a forced refresh — safe to cache.
-        if kid:
-            _add_to_negative_cache(kid)
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-    except (jwt.PyJWTError, ValueError, TypeError) as exc:
-        raise HTTPException(status_code=401, detail="Invalid or expired token") from exc
+
+
+# ── Refresh token (opaque random value; only its SHA-256 hash is stored) ──
+# High-entropy random token, not a low-entropy password — a fast deterministic
+# hash (for direct DB lookup by hash) is the correct tool here, not bcrypt.
+
+def generate_refresh_token() -> tuple[str, str, datetime]:
+    """Returns (raw_token, token_hash, expires_at). Raw token goes in the cookie;
+    only the hash is ever persisted."""
+    raw = secrets.token_urlsafe(32)
+    token_hash = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+    expires_at = datetime.now(timezone.utc) + timedelta(seconds=settings.refresh_token_ttl_seconds)
+    return raw, token_hash, expires_at
+
+
+def hash_refresh_token(raw_token: str) -> str:
+    return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+
+
+# ── CSRF (double-submit cookie) ────────────────────────────────────────────
+
+def generate_csrf_token() -> str:
+    return secrets.token_urlsafe(32)
+
+
+_UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+# No session exists yet when logging in, so there's nothing to double-submit against.
+_CSRF_EXEMPT_PATHS = {"/auth/login"}
+
+
+def csrf_check(
+    method: str, path: str, has_session: bool, cookie_value: str | None, header_value: str | None,
+) -> None:
+    """CSRF only matters when there's a session to ride on — an anonymous request
+    has no ambient authority to hijack, so it falls through to the normal 401 auth
+    gate instead of being intercepted here."""
+    if method not in _UNSAFE_METHODS or path in _CSRF_EXEMPT_PATHS or not has_session:
+        return
+    if not cookie_value or not header_value or not secrets.compare_digest(cookie_value, header_value):
+        log_event("auth.csrf.reject", path=path)
+        raise HTTPException(status_code=403, detail="CSRF check failed")
+
+
+# ── Cookie helpers ─────────────────────────────────────────────────────────
+
+def set_auth_cookies(response, *, access_token: str, refresh_token: str, csrf_token: str) -> None:
+    response.set_cookie(
+        ACCESS_COOKIE, access_token, max_age=settings.access_token_ttl_seconds,
+        httponly=True, secure=settings.cookie_secure, samesite="lax", path="/",
+    )
+    response.set_cookie(
+        REFRESH_COOKIE, refresh_token, max_age=settings.refresh_token_ttl_seconds,
+        httponly=True, secure=settings.cookie_secure, samesite="lax", path="/auth",
+    )
+    response.set_cookie(
+        CSRF_COOKIE, csrf_token, max_age=settings.access_token_ttl_seconds,
+        httponly=False, secure=settings.cookie_secure, samesite="lax", path="/",
+    )
+
+
+def clear_auth_cookies(response) -> None:
+    response.delete_cookie(ACCESS_COOKIE, path="/")
+    response.delete_cookie(REFRESH_COOKIE, path="/auth")
+    response.delete_cookie(CSRF_COOKIE, path="/")

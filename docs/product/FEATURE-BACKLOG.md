@@ -1,7 +1,17 @@
 # WealthSignal — Feature Backlog
 
 > Master reference for all feature work: completed, in-progress, planned, on hold, and cancelled.
-> Updated: 2026-06-07. Load this file when planning what to build next.
+> Updated: 2026-08-06. Load this file when planning what to build next.
+
+## Direction pivot (2026-07-30)
+
+The founder pivoted WealthSignal from a hosted, paid, multi-tenant SaaS to an **open-source,
+self-hosted, single-user project** (`architecture-002`, MIT license). This supersedes the VPS
+Deployment Milestone and several Post-VPS Pipeline items below — see the `❌ Cancelled` markers
+and notes added throughout, and `docs/product/ROADMAP.md` for the current phased plan (auth
+rewrite → data migration → self-host packaging). Items unrelated to the hosting/business model
+(e.g. product features like notes-per-asset or Smallcase integration) are unaffected and remain
+pending as before.
 
 ## Status legend
 
@@ -28,13 +38,15 @@
 | A4 | Financial correctness — RD compounding fix, crypto price fault isolation | ✅ | `4736235` | Merged to master |
 | A5 | `/market/*` in-process cache + per-user/per-IP rate limiting | ✅ | `85fab46` | Merged to master |
 | A6 | Supabase production config checklist, M4 accepted as Free-plan limit | ✅ | `e74a7bf` | Merged to master |
-| A7 | Automated offsite backups (rclone → Google Drive) | ⏸️ | — | Deferred to VPS day (V5) |
+| A7 | Automated offsite backups (rclone → Google Drive) | ⏸️ | — | No longer tied to VPS day (V5, cancelled) — now part of the self-host packaging phase, see `ROADMAP.md` |
 | A8 | Structured request/error logging + Alembic model drift guard | ✅ | `c88556e` | Merged to master |
 | A9 | JWKS unknown-kid negative cache (DoS hardening, M2 closed) | ✅ | `22936cd` | Merged to master |
 | A10a | Snapshot atomic upsert via `ON CONFLICT DO UPDATE` (L6 — part 1) | ✅ | `d04a7f0` | Merged to master |
 | A10b | Holding uniqueness constraints + `IntegrityError` race-safe merge (L6 — part 2) | ✅ | `beda9db` | Merged to master |
 | A11 | Transaction pagination (`limit`/`offset`, envelope response) + L6 doc closure | ✅ | `b9f71a1` | Merged to master |
 | A12 | Transaction date filtering (`from`/`to` inclusive) | ✅ | | Extension of A11 |
+| A13 | Holdings pagination (`GET /assets`, envelope response) | ✅ | `d48cd5a`, `a30b33e` | feature-013; fix commit added missing `AssetPage` type |
+| A14 | Replace deprecated FastAPI `on_event` with `asynccontextmanager` lifespan | ✅ | `fa9db10` | feature-014 |
 
 ---
 
@@ -58,8 +70,8 @@
 | C13 | Redeem mutual fund (partial) | ✅ | |
 | C14 | Top-up savings / PPF | ✅ | |
 | C15 | Auto-populate MF NAV on fund select | ✅ | |
-| C16 | Supabase auth (ES256 JWT), PKCE flow, email confirmation | ✅ | |
-| C17 | RLS + `app_user` least-privilege role + per-request GUC | ✅ | |
+| C16 | Supabase auth (ES256 JWT), PKCE flow, email confirmation | ✅ | Being replaced — `architecture-002` Phase 2 (custom bcrypt/JWT auth, see `ROADMAP.md`) |
+| C17 | RLS + `app_user` least-privilege role + per-request GUC | ✅ | Being removed entirely under Phase 2 (single-user deployment no longer needs RLS) |
 | C18 | `DELETE /account` — full data purge | ✅ | |
 
 ---
@@ -146,51 +158,79 @@
 
 ---
 
-## VPS Deployment Milestone
-*Trigger: VPS provisioned + domain live. Run `docs/runbooks/DEPLOY.md`.*
+## VPS Deployment Milestone — ❌ CANCELLED (superseded 2026-07-30)
 
-| ID | Task | Owner | Notes |
-|---|---|---|---|
-| V1 | Provision Hetzner CX21 (~$5/mo) | Founder | 2 vCPU, 4GB RAM |
-| V2 | Domain + Cloudflare + Nginx + Certbot (HTTPS) | Founder | Prerequisite for Google OAuth and PWA |
-| V3 | Deploy stack (`alembic upgrade head` → `make dev` → `make validate`) | Engineer | Runbook: `DEPLOY.md` |
-| V4 | B1 Supabase cutover — Site URL, Redirect URLs, CORS origin set to real domain | Founder | Enables Google OAuth; fixes L3 |
-| V5 | A7 — Automated offsite backups (cron `make backup` → rclone → Google Drive) | Engineer | |
-| V6 | UptimeRobot monitoring (free, email alerts) | Founder | 50 monitors free tier |
-| V7 | GitHub Actions CI/CD (push to `master` → SSH deploy) | Engineer | |
-| V8 | F2 — Price freshness indicators (ships on VPS day, 2 hours) | Engineer | |
+This entire milestone assumed a hosted, Supabase-backed, multi-tenant SaaS on a Hetzner VPS
+(`architecture-001`). That plan is cancelled — superseded by the OSS self-host pivot
+(`architecture-002`). Table kept for historical record; see `docs/product/ROADMAP.md` for what
+replaced it (self-host Docker packaging, no domain/CI-CD/Ansible requirement).
+
+| ID | Task | Owner | Status | Notes |
+|---|---|---|---|---|
+| V1 | Provision Hetzner CX21 (~$5/mo) | Founder | ❌ | Cancelled — no hosted VPS target anymore |
+| V2 | Domain + Cloudflare + Nginx + Certbot (HTTPS) | Founder | 🟡 | **Reconsidered 2026-08-06** — founder is keeping this Hetzner box as their live personal instance, wants HTTPS for it. Sequenced behind O4 (Tailscale) below; reassess whether a public domain is even needed once Tailscale is in place. |
+| V3 | Deploy stack (`alembic upgrade head` → `make dev` → `make validate`) | Engineer | ❌ | Superseded by self-host `docker-compose up` packaging |
+| V4 | B1 Supabase cutover — Site URL, Redirect URLs, CORS origin set to real domain | Founder | ❌ | Moot — Supabase being dropped entirely, not cut over |
+| V5 | A7 — Automated offsite backups (cron `make backup` → rclone → Google Drive) | Engineer | 🟡 | Concept carried forward into self-host packaging phase, not VPS-specific anymore |
+| V6 | UptimeRobot monitoring (free, email alerts) | Founder | ❌ | Not applicable to a self-hosted single-user install |
+| V7 | GitHub Actions CI/CD (push to `master` → SSH deploy) | Engineer | ❌ | No central deploy target to push to anymore |
+| V8 | F2 — Price freshness indicators (ships on VPS day, 2 hours) | Engineer | ✅ | Already shipped independent of VPS — dashboard shows "Prices updated X min ago" (see F2) |
 
 ---
 
-## Post-VPS Pipeline
-*Features that require real domain / HTTPS, or are post-launch priorities.*
+## Operational Hardening — Personal Instance (added 2026-08-06)
+*Triggered by a real incident: BSI/CERT-Bund flagged the self-host sandbox Postgres container
+publicly exposed on `0.0.0.0:5432` (fixed same day, rebound to `127.0.0.1`). Confirmed this
+Hetzner VM (`167.233.141.50`) is the founder's actual live instance, not just a build box — these
+are current priority, ahead of the auth rewrite (Phase 2).*
 
-### Launch Readiness (do before first paying user)
+| ID | Feature | Status | Notes |
+|---|---|---|---|
+| O1 | **Automated backups + offsite copy** | 🟡 | No cron/backup currently runs at all; Supabase free tier has no auto-backup either. Highest severity — only item where failure mode is irreversible data loss. `backup.sh` on cron + rclone → Google Drive. |
+| O2 | **Host firewall (`ufw`, default-deny)** | 🟡 | Currently inactive; only Docker's own iptables rules gate inbound traffic. Explicit allows for SSH + app port. Prevents a repeat of the Postgres exposure incident by design, not just this one instance. |
+| O3 | **Process supervision (systemd units)** | 🟡 | Backend (`uvicorn`) and frontend (`next start`) run as bare `nohup` processes, no auto-restart on reboot. |
+| O4 | **Tailscale for private HTTPS access** | ✅ | Done 2026-08-10 — implemented via `tailscale serve --bg http://localhost:3000` (Tailscale's CLI changed; raw `tailscale cert` as originally scoped doesn't auto-renew). Live at founder's `*.ts.net` hostname, reachable from VM + founder's phone (joined to same tailnet); `funnel status` confirmed off, nothing newly public. |
+| O5 | **Close plaintext port 3000 (founder's own instance, post-OSS-launch)** | 🟡 | Deliberately deferred, not forgotten. Port 3000 stays open now so a fresh `git clone` + `docker-compose up` works out-of-the-box for self-hosters — no Tailscale/nginx/TLS setup required to get a working install (decided 2026-08-10). After the OSS GitHub release, close 3000 on *this* founder instance specifically (loopback bind + `ufw` rule); personal access continues via the O4 Tailscale URL. Forks/other self-hosters keep the open-by-default behavior and decide their own hardening independently. |
+
+**Sequencing:** these IDs map onto `docs/product/ROADMAP.md`'s flat numbered milestone list
+(renumbered 2026-08-06): O1=step 1, O2=step 2, O3=step 3, O4=step 4, auth rewrite=step 5, V2
+domain reassessment=step 6. O1–O3 can happen in any order, cheaply, without blocking anything. O4
+must land before step 5 (auth rewrite) — done. V2 is deferred behind O4, reassessed at step 6. O5
+is independent of this sequence entirely — it's gated on the OSS GitHub release (step 8), not on
+the auth rewrite.
+
+---
+
+## Post-Pivot Pipeline
+*Formerly "Post-VPS Pipeline." Renamed 2026-08-06 — most items here no longer depend on a
+domain/HTTPS/VPS launch; they depend on the self-host pivot phases instead. See notes per row.*
+
+### Launch Readiness (do before OSS release)
 
 | ID | Feature | Est. Effort | Status | Notes |
 |---|---|---|---|---|
-| P1 | **Google OAuth ("Sign in with Google")** | VPS day task | 🟡 | Code handles it; just needs domain in Supabase console |
-| P2 | **Onboarding / first-run experience** | 1 week | 🟡 | Empty dashboard is a conversion killer. "Add your first asset" prompt + guided first step. |
-| P3 | **Mobile responsiveness audit** | 1 week | 🟡 | Target user is mobile-first. Every screen must work at 390px. |
-| P4 | **Data export (CSV)** | 3–4 days | 🟡 | Trust signal: "can I get my data out?" Holdings + transactions export. |
-| P5 | **Terms of Service + Privacy Policy** | 1 day writing | 🟡 | Required before taking payment. Plain-English privacy policy is the key trust signal. |
+| P1 | **Google OAuth ("Sign in with Google")** | — | ❌ | Cancelled — no multi-tenant signup flow in the single-user model (`architecture-002`) |
+| P2 | **Onboarding / first-run experience** | 1 week | ✅ | Done — `feature-005`, `docs/features/onboarding-flow.md` |
+| P3 | **Mobile responsiveness audit** | 1 week | 🟡 | Still pending, unaffected by the pivot |
+| P4 | **Data export (CSV)** | 3–4 days | ✅ | Done — `feature-006`, `dedb487`, `backend/app/api/export.py` |
+| P5 | **Terms of Service + Privacy Policy** | 1 day writing | 🟡 | Still pending; reframe as self-hoster-facing disclaimer (data is theirs, they own the deployment) rather than a SaaS ToS — lower urgency than before, no payment to gate |
 
 ### Growth Features
 
 | ID | Feature | Est. Effort | Status | Notes |
 |---|---|---|---|---|
-| P6 | **Razorpay payments** | 2–3 weeks | 🟡 | UPI/cards, ₹99/month + ₹999/year, 21-day free trial gating, webhook |
-| P7 | **AI monthly email report** | 2–3 weeks | ⏸️ | On hold until other features complete. Needs email provider (Resend/Postmark) + prompt engineering + monthly scheduler. |
-| P8 | **Net worth benchmark comparison (Nifty 50)** | 2 weeks | 🟡 | Requires external index data source. Phase 2. |
-| P9 | **Notes per asset** | 1 day | 🟡 | Free-text notes field on each holding. Turns tracker into investment journal. |
-| P10 | **PWA (manifest + service worker)** | 1 week | 🟡 | Installable. Requires HTTPS (V2). |
-| P11 | **Play Store via TWA** | 2–3 weeks | 🟡 | Bubblewrap wrapper. Requires PWA (P10). |
-| P12 | **Day-wise P&L charts** | 1–2 weeks | 🟡 | Historical net worth drilldown per asset. |
-| P13 | **Manual ESOPs tracking** | 3–4 weeks | 🟡 | Vesting schedules, cliff dates, strike price. Scoped separately from F3 (simple manual). |
-| P14 | **Dividend / interest income view** | 1 week | 🟡 | Running total of passive income from portfolio. Separate from capital appreciation. |
-| P15 | **Smallcase integration** | 2 weeks | 🟡 | Smallcase has an API. Proper integration, not manual entry. |
-| P16 | **Concentration/liquidity alerts — advanced** | 1 week | 🟡 | Expand F7/F8 with user-configurable thresholds post-launch. |
-| P17 | **Serve CSV import template via Nginx static asset** | 2 hours | 🟡 | Currently served by FastAPI (GET /import/csv/template). Move to Nginx static file delivery post-VPS to reduce unnecessary FastAPI overhead for a hardcoded file. Prerequisite: V2 (Nginx). No user impact; transparent swap. |
+| P6 | **Razorpay payments** | — | ❌ | Cancelled — no paid tier in the OSS single-user model |
+| P7 | **AI monthly email report** | 2–3 weeks | ⏸️ | On hold, unaffected by the pivot. Needs email provider (Resend/Postmark) + prompt engineering + monthly scheduler. |
+| P8 | **Net worth benchmark comparison (Nifty 50)** | 2 weeks | 🟡 | Still pending, unaffected by the pivot |
+| P9 | **Notes per asset** | 1 day | 🟡 | Still pending, unaffected by the pivot |
+| P10 | **PWA (manifest + service worker)** | 1 week | 🟡 | Open question, not decided: no longer tied to a SaaS HTTPS launch, but may still be worth doing for a self-hoster's own mobile install convenience. Needs explicit CEO call, see `ROADMAP.md`. |
+| P11 | **Play Store via TWA** | — | ❌ | Cancelled — public app-store distribution doesn't fit a self-hosted single-user OSS project |
+| P12 | **Day-wise P&L charts** | 1–2 weeks | 🟡 | Still pending, unaffected by the pivot |
+| P13 | **Manual ESOPs tracking** | 3–4 weeks | 🟡 | Still pending, unaffected by the pivot |
+| P14 | **Dividend / interest income view** | 1 week | 🟡 | Still pending, unaffected by the pivot |
+| P15 | **Smallcase integration** | 2 weeks | 🟡 | Still pending, unaffected by the pivot |
+| P16 | **Concentration/liquidity alerts — advanced** | 1 week | 🟡 | Still pending, depends on F7/F8 first |
+| P17 | **Serve CSV import template via Nginx static asset** | — | ❌ | Cancelled — no centralized Nginx VPS deploy planned; FastAPI serving the static file is simpler for self-host |
 
 ### On Hold — Requires CEO Approval to Resume
 
@@ -214,14 +254,15 @@
 
 ```
 ✅ COMPLETED (Phase 0 — merged to master 2026-06-07)
-  A1 A2 A3a A3b A4 A5 A6 A8 A9 A10a A10b A11
+  A1 A2 A3a A3b A4 A5 A6 A8 A9 A10a A10b A11 A13 A14
+  (A13, A14 added later — holdings pagination, on_event→lifespan fix)
 
 ✅ COMPLETED (PRE-VPS STAGES 1-3 — merged to master)
   Stage 1: F1 F2 F3  (net worth, freshness, manual assets)
   Stage 2: F4        (CSV transaction import)
   Stage 3: F5 F6     (XIRR backend + frontend)
 
-⏸️ SKIPPED (Stage 4 — deferred post-VPS per CEO 2026-06-08)
+⏸️ SKIPPED (Stage 4 — still pending, unaffected by the pivot)
   F7 F8  (concentration alerts, liquidity analysis)
 
 ✅ COMPLETED (Stage 5 — merged to master 2026-06-12)
@@ -229,14 +270,33 @@
   BONUS: Time-range selector (1W/1M/1Y/ALL)
   398fcc1: Merge Stage 5 — best/worst performers + time-range selector
 
-❌ BLOCKED ON VPS (V1–V8)
-  Provision Hetzner → Deploy → Supabase cutover → Backups → CI/CD
+❌ CANCELLED — superseded by the OSS self-host pivot, architecture-002 (2026-07-30)
+  VPS Deployment Milestone (V1, V3, V4, V6, V7) — hosted-SaaS infra no longer applies
+  P1 Google OAuth, P6 Razorpay, P11 Play Store, P17 Nginx static asset
 
-❌ BLOCKED ON VPS (Launch Readiness P1–P5)
-  Google OAuth → Onboarding → Mobile audit → Data export → ToS/Privacy
+🔴 CURRENT PRIORITY — Operational Hardening, personal instance (added 2026-08-06)
+  O1 Backups, O2 Firewall, O3 Process supervision
+  O4 Tailscale HTTPS — ✅ done 2026-08-10
+  (V2 public domain reconsidered — sequenced behind O4)
 
-❌ BLOCKED ON VPS (Growth P6–P16)
-  Razorpay → Benchmark → Notes → PWA → Play Store → Smallcase → ...
+✅ COMPLETED (2026-08-10) — architecture-002 Phase 2 + 3, feature-017
+  Step 5 Auth rewrite (custom bcrypt/HS256, RLS removed) + Step 7 Data migration
+  (superseded — founder chose fresh start, no Supabase data carried over)
+
+🟡 DEFERRED TO POST-OSS-LAUNCH (added 2026-08-10)
+  O5 Close plaintext port 3000 on founder's own instance (gated on step 8 GitHub release,
+  not on the auth rewrite)
+
+✅ COMPLETED, previously mismarked as pending in this doc (corrected 2026-08-06)
+  P2 Onboarding, P4 Data export CSV, V8 price freshness
+
+🟡 STILL PENDING — unaffected by the pivot
+  P3 Mobile audit, P5 ToS/Privacy (reframed for self-hosters), P8 Benchmark,
+  P9 Notes per asset, P12 Day-wise P&L, P13 ESOPs, P14 Dividend/interest,
+  P15 Smallcase, P16 Advanced alerts, V5/A7 offsite backups (now self-host-phase-owned)
+
+❓ OPEN QUESTION — needs explicit CEO call
+  P10 PWA — worth reviving in a smaller, non-SaaS form? (see ROADMAP.md)
 
 ⏸️ ON HOLD (H1–H4) — CEO approval required to resume
   Realized P&L, Tax dashboard, AI report, SIP comparison
@@ -259,3 +319,17 @@
 | 2026-06-07 | CSV import — added before XIRR to maximise day-1 XIRR value | PM + Engineer + CTO |
 | 2026-06-07 | Manual asset: simple version only (name + price) — ESOPs/real estate separate | PM + Engineer |
 | 2026-06-08 | Stage 4 (F7 Concentration Alerts + F8 Liquidity Analysis) — skipped, moving directly to Stage 5 | CEO |
+| 2026-07-30 | Pivot to open-source, self-hosted, single-user project (MIT license); `architecture-001` (hosted VPS SaaS) cancelled, superseded by `architecture-002` | CEO |
+| 2026-07-30 | VPS Deployment Milestone (V1–V4, V6, V7) and P1 Google OAuth, P6 Razorpay, P11 Play Store, P17 Nginx static asset — cancelled as a consequence of the pivot | CEO |
+| 2026-08-06 | Reconciled this doc against actual shipped code and git history: corrected P2 (onboarding), P4 (CSV export), V8 (price freshness) from "planned" to "done"; added A13/A14 for previously untracked shipped work | Claude (documentation reconciliation) |
+| 2026-08-06 | BSI/CERT-Bund flagged self-host sandbox Postgres publicly exposed on `0.0.0.0:5432`; fixed same day (rebound to `127.0.0.1`) | Founder + Claude (incident response) |
+| 2026-08-06 | This Hetzner VM confirmed as the founder's actual live personal instance, not just a build box — reinstates V2 (domain/HTTPS), deprioritized behind new O1–O4 operational hardening items which become current priority ahead of the auth rewrite | Founder |
+| 2026-08-06 | Sequencing: Tailscale (O4) before auth rewrite (Phase 2), so cookie/CSRF work is built and tested against real TLS from the start; public domain (V2) reassessed only after Tailscale is in place | Founder |
+| 2026-08-10 | O4 Tailscale implemented manually (not via the Gemini/Qwen AI-SDLC pipeline) using `tailscale serve --bg`, not raw `tailscale cert` as originally scoped — Tailscale's CLI syntax changed since the request was written | Founder + Claude |
+| 2026-08-10 | Plaintext port 3000 stays open by default, not closed alongside O4 — required for a fresh `docker-compose up` to work out-of-the-box with zero setup for self-hosters. Added O5 to close it on the founder's own instance specifically, gated on the OSS GitHub release rather than on the auth rewrite. Forks decide their own exposure. | Founder |
+| 2026-08-10 | feature-015 (Tailscale, O4) approved and marked complete — implementation/QA/audit performed manually by the founder rather than via the Gemini/Qwen pipeline, per SDLC.md's model-ownership fallback for stages requiring interactive account-level access | Founder |
+| 2026-08-10 | feature-017 scope resolved through discussion: full cutover now (custom auth + fresh local Postgres), not just "change db" — auth rewrite (`ROADMAP.md` step 5) and data migration (step 7) both folded in, reversing the original sequencing recommendation (auth-before-migration) in favor of doing both together | Founder |
+| 2026-08-10 | feature-017: no data migration — founder explicitly disregarded existing Supabase data ("I don't care about any existing user data"). Old Supabase project left untouched, not migrated or deleted. `O1`/backup-gate question became moot rather than satisfied. | Founder |
+| 2026-08-10 | feature-017 implementation performed by Claude, not the assigned Gemini (daily quota exhausted) — founder-directed fallback, same pattern as O4 | Founder |
+| 2026-08-10 | feature-017 QA performed by Claude, not the assigned Qwen (OpenRouter API key returned "User not found" — looks invalid/revoked, not transient) — founder-directed fallback. Flagged explicitly: no independent model verified this auth-critical code. | Founder |
+| 2026-08-10 | feature-017 approved and marked complete — auth rewrite (`ROADMAP.md` step 5) and data-migration decision (step 7) both closed. `COOKIE_SECURE=false` on the public IP and refresh-token family-revocation gap left as explicit, accepted tech debt, not silently resolved. | Founder |

@@ -1,0 +1,40 @@
+# Real local Postgres target for the OSS self-host cutover (architecture-002 Phase 3,
+# feature-017). Distinct from docker-compose.selfhost.yml's Phase 1 sandbox — kept
+# disposable/re-testable for future migration dry-runs — this one is the actual
+# database the running app points DATABASE_URL/ADMIN_DATABASE_URL at.
+#
+# IMPORTANT: always pass -p — otherwise Compose's default (directory-name-derived)
+# project name collides with docker-compose.selfhost.yml's, and an `up`/`down` on
+# one file can recreate or remove the other's container. This has already happened
+# once during the feature-017 cutover.
+#
+# Usage:
+#   docker compose -p investment-tracker-local -f docker-compose.local.yml up -d
+#   docker compose -p investment-tracker-local -f docker-compose.local.yml down        # stop, keep data
+#   docker compose -p investment-tracker-local -f docker-compose.local.yml down -v     # stop, wipe local data
+#
+# POSTGRES_PASSWORD / APP_USER_PASSWORD are read from the shell environment — set
+# them (or a .env alongside this file) before `up`, don't hardcode real values here.
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: investment_tracker_postgres
+    environment:
+      POSTGRES_USER: investment_admin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD before starting}
+      POSTGRES_DB: investment_tracker
+      APP_USER_PASSWORD: ${APP_USER_PASSWORD:?set APP_USER_PASSWORD before starting}
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - investment_tracker_data:/var/lib/postgresql/data
+      - ./db-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U investment_admin -d investment_tracker"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  investment_tracker_data:

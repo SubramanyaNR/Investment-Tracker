@@ -1,6 +1,8 @@
 # 0002 — Supabase Auth with ES256 JWT verification
 
-- Status: Accepted
+- Status: **Superseded 2026-08-10** by custom bcrypt/HS256 auth — see
+  `0005-custom-auth-single-user.md` and `architecture-002`/`feature-017`. The OSS self-host pivot
+  (2026-07-30) dropped Supabase entirely; kept here for historical record.
 - Date: 2026-06-04 (recorded; implemented on `feature/supabase-auth`)
 
 ## Context

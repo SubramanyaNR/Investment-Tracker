@@ -1,13 +1,19 @@
-import { supabase } from "./supabase";
-
 // Same-origin proxy: next.config.ts rewrites /api/* to the backend server-side.
 // Never default to localhost:8000 or a baked host IP — see CLAUDE.md "How the app is accessed".
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api";
 
-async function authHeaders(): Promise<Record<string, string>> {
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-  return token ? { Authorization: `Bearer ${token}` } : {};
+// Session identity now lives in an httpOnly cookie set by the backend (architecture-002
+// Phase 2) — the browser attaches it automatically on same-origin requests, no header
+// needed. Only the CSRF double-submit cookie needs to be read and echoed back manually,
+// since it must be JS-readable (not httpOnly) for that to work.
+function readCookie(name: string): string | null {
+  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function csrfHeaders(): Record<string, string> {
+  const token = readCookie("csrf_token");
+  return token ? { "X-CSRF-Token": token } : {};
 }
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -189,10 +195,7 @@ export type ImportConfirmResult = {
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    cache: "no-store",
-    headers: await authHeaders(),
-  });
+  const res = await fetch(`${API_BASE_URL}${path}`, { cache: "no-store" });
   if (!res.ok) throw new Error(`GET ${path} failed: ${res.status}`);
   return res.json();
 }
@@ -202,7 +205,7 @@ async function post<T>(path: string, body?: unknown): Promise<T> {
     method: "POST",
     headers: {
       ...(body ? { "Content-Type": "application/json" } : {}),
-      ...(await authHeaders()),
+      ...csrfHeaders(),
     },
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -211,6 +214,34 @@ async function post<T>(path: string, body?: unknown): Promise<T> {
     throw new Error(`POST ${path} failed: ${res.status} ${text}`);
   }
   return res.json();
+}
+
+// ── Auth ───────────────────────────────────────────────────────────────────
+
+export async function login(email: string, password: string): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Login failed: ${res.status} ${text}`);
+  }
+}
+
+export async function logout(): Promise<void> {
+  await fetch(`${API_BASE_URL}/auth/logout`, { method: "POST", headers: csrfHeaders() });
+}
+
+export async function getMe(): Promise<{ user_id: string } | null> {
+  const res = await fetch(`${API_BASE_URL}/auth/me`, { cache: "no-store" });
+  return res.ok ? res.json() : null;
+}
+
+export async function refreshSession(): Promise<boolean> {
+  const res = await fetch(`${API_BASE_URL}/auth/refresh`, { method: "POST", headers: csrfHeaders() });
+  return res.ok;
 }
 
 // ── API functions ──────────────────────────────────────────────────────────
@@ -248,10 +279,9 @@ export const getDailyPerformance = () => get<PerformanceResult>("/performance/da
 export async function importCsvDryRun(file: File): Promise<ImportDryRunResult> {
   const form = new FormData();
   form.append("file", file);
-  const headers = await authHeaders();
   const res = await fetch(`${API_BASE_URL}/import/csv?dry_run=true`, {
     method: "POST",
-    headers,
+    headers: csrfHeaders(),
     body: form,
   });
   if (!res.ok) {
@@ -264,10 +294,9 @@ export async function importCsvDryRun(file: File): Promise<ImportDryRunResult> {
 export async function importCsvConfirm(file: File): Promise<ImportConfirmResult> {
   const form = new FormData();
   form.append("file", file);
-  const headers = await authHeaders();
   const res = await fetch(`${API_BASE_URL}/import/csv?dry_run=false`, {
     method: "POST",
-    headers,
+    headers: csrfHeaders(),
     body: form,
   });
   if (!res.ok) {
@@ -312,7 +341,7 @@ export async function createAsset(payload: {
 export async function deleteAsset(assetId: string) {
   const res = await fetch(`${API_BASE_URL}/assets/${assetId}`, {
     method: "DELETE",
-    headers: await authHeaders(),
+    headers: csrfHeaders(),
   });
   if (!res.ok) {
     const text = await res.text();
@@ -343,10 +372,7 @@ export async function topUpSavings(assetId: string, amount: number) {
 }
 
 export async function exportHoldings() {
-  const headers = await authHeaders();
-  const res = await fetch(`${API_BASE_URL}/export/holdings`, {
-    headers,
-  });
+  const res = await fetch(`${API_BASE_URL}/export/holdings`);
   if (!res.ok) throw new Error(`Export holdings failed: ${res.status}`);
   const blob = await res.blob();
   const url = window.URL.createObjectURL(blob);
@@ -365,10 +391,7 @@ export async function exportHoldings() {
 }
 
 export async function exportTransactions() {
-  const headers = await authHeaders();
-  const res = await fetch(`${API_BASE_URL}/export/transactions`, {
-    headers,
-  });
+  const res = await fetch(`${API_BASE_URL}/export/transactions`);
   if (!res.ok) throw new Error(`Export transactions failed: ${res.status}`);
   const blob = await res.blob();
   const url = window.URL.createObjectURL(blob);

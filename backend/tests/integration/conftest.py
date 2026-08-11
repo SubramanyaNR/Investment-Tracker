@@ -1,11 +1,13 @@
-"""Integration-tier fixtures: an ephemeral Postgres with the real schema + RLS.
+"""Integration-tier fixtures: an ephemeral Postgres with the real schema.
 
-A session-scoped container is provisioned exactly like production: the non-superuser
-`app_user` role is created, then `alembic upgrade head` runs as admin with TLS off
-(DB_SSL="") to build the tables, RLS policies, grants, and FKs. The FastAPI app is
+A session-scoped container is provisioned exactly like production: the least-
+privilege `app_user` role is created, then `alembic upgrade head` runs as admin
+with TLS off (DB_SSL="") to build the tables, grants, and FKs. The FastAPI app is
 wired to the container by monkeypatching the request-path engine + session factory,
-so the production `get_session` and the per-transaction RLS GUC hook are exercised
-unchanged; only identity (`get_current_user_id`) is overridden per test.
+so the production `get_session` path is exercised unchanged; only identity
+(`get_current_user_id`) is overridden per test. Tenant isolation is enforced solely
+at the app layer (WHERE user_id = ...) — RLS was removed under architecture-002
+Phase 2 (single-user model).
 """
 import asyncio
 import os
@@ -53,8 +55,6 @@ def pg():
         env = {
             **os.environ,
             "ADMIN_DATABASE_URL": super_url, "DATABASE_URL": app_url, "DB_SSL": "",
-            "SUPABASE_JWKS_URL": "https://test.invalid/jwks", "SUPABASE_ISSUER": "https://test.invalid",
-            "SUPABASE_JWT_AUDIENCE": "authenticated",
         }
         r = subprocess.run([PY, "-m", "alembic", "upgrade", "head"], cwd=BACKEND,
                            env=env, capture_output=True, text=True)

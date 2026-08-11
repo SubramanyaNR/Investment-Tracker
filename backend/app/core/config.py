@@ -18,13 +18,27 @@ class Settings(BaseSettings):
     gemini_api_key: str | None = None
     gemini_model: str = "gemini-2.0-flash"
 
-    supabase_jwks_url: str
-    supabase_issuer: str
-    supabase_jwt_audience: str = "authenticated"
-
     # DB TLS mode for asyncpg. Default "require" (Supabase). Set empty to disable
     # for a local non-TLS Postgres (e.g. the integration-test container).
     db_ssl: str | None = "require"
+
+    # ── architecture-002 Phase 2: custom auth (replaces Supabase Auth) ──────
+    # High-entropy secret, generated once, never committed. HS256 is the
+    # self-hosted-appropriate choice: no external JWKS verifier exists anymore.
+    jwt_secret: str
+    access_token_ttl_seconds: int = 900        # 15 min
+    refresh_token_ttl_seconds: int = 60 * 60 * 24 * 30  # 30 days
+    # First-run bootstrap only — creates the single admin user if `users` is
+    # empty. Not read again afterward; safe to leave in .env or remove post-bootstrap.
+    admin_email: str
+    admin_password: str
+    # Cookies must work over plain HTTP out of the box (self-host docker-compose
+    # up, and the founder's own plaintext access path) — Secure is opt-in for
+    # whoever puts real HTTPS in front (e.g. Tailscale), not a hardcoded default.
+    cookie_secure: bool = False
+    # Login attempts per IP per window (WINDOW=60s in ratelimit.py) — cheap
+    # brute-force insurance now that there's no email-based password reset.
+    rl_login_attempts: int = 5
 
     # ── A5: market caching + rate limiting ──────────────────────────────────
     rate_limit_enabled: bool = True
@@ -44,10 +58,6 @@ class Settings(BaseSettings):
     rl_user_import: int = 5          # /import/csv (file parsing + DB writes)
     rl_user_xirr: int = 20           # /xirr (CPU-light but DB-read heavy)
     rl_user_performance: int = 30    # /performance/* (lightweight DB reads)
-
-    # ── A9: JWKS unknown-kid negative cache ─────────────────────────────────
-    jwks_negative_cache_ttl: int = 60        # seconds a confirmed-bad kid is remembered
-    jwks_negative_cache_maxsize: int = 1000  # cap memory; evict oldest on overflow
 
     class Config:
         env_file = ".env"

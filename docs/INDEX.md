@@ -20,6 +20,7 @@
 | A specific feature's behaviour + gotchas | `features/<feature>.md` |
 | Deploying to the VPS | `runbooks/DEPLOY.md` |
 | Backups / restore | `runbooks/BACKUP-RESTORE.md` |
+| Locked out of the admin account | `runbooks/ADMIN-ACCOUNT-RECOVERY.md` |
 | Prod is broken | `runbooks/INCIDENT.md` |
 | Running locally / make targets / ports | `runbooks/LOCAL-DEV.md` |
 | Security posture / audit / open findings | `runbooks/SECURITY-AUDIT.md` |

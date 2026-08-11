@@ -1,8 +1,9 @@
-"""Two-tenant isolation through the real app (app_user engine + RLS active).
+"""Two-tenant isolation through the real app (app_user engine, app-layer filtering).
 
 Reproduces SECURITY-AUDIT §5 (each tenant sees only its own data) and §4 (no IDOR:
 a tenant cannot target another's asset). Identity is injected; every query runs as
-app_user with the per-request RLS GUC set by the production hook.
+app_user and is scoped by an explicit WHERE user_id clause — the sole enforcement
+mechanism since RLS was removed under architecture-002 Phase 2 (single-user model).
 """
 import pytest
 

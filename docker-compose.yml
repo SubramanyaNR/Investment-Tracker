@@ -1,13 +1,19 @@
 # Container stack for the VPS deploy. NOTE: the VM currently runs the app via `make dev`
-# (uvicorn + `next start`) against Supabase — this file is the basis for the VPS deploy, whose
-# container networking, frontend `output: "standalone"` build, the same-origin proxy target, and
-# nginx + Certbot (TLS) are finalized in docs/runbooks/DEPLOY.md (roadmap B1). Until then, do not
-# treat `docker compose up` as the production path.
+# (uvicorn + `next start`) against docker-compose.local.yml's Postgres container — this file is the
+# basis for a future fully-containerized deploy, whose container networking, frontend
+# `output: "standalone"` build, the same-origin proxy target, and nginx + Certbot (TLS) are
+# finalized in docs/runbooks/DEPLOY.md (roadmap B1). Until then, do not treat `docker compose up`
+# on this file as the production path.
 #
-# The database is Supabase (remote) — there is NO local Postgres service. All backend configuration,
-# including the request-path `app_user` DATABASE_URL and the admin ADMIN_DATABASE_URL, comes from
-# ./backend/.env. NEVER hardcode a DATABASE_URL here: a superuser/owner DSN bypasses Row-Level
-# Security and defeats the multi-tenancy backstop.
+# There is NO local Postgres service defined here — that's docker-compose.local.yml (real data) /
+# docker-compose.selfhost.yml (disposable sandbox). All backend configuration, including the
+# request-path `app_user` DATABASE_URL and the admin ADMIN_DATABASE_URL, comes from ./backend/.env.
+# NEVER hardcode a DATABASE_URL here.
+#
+# If this file is ever brought up with `docker compose up`, pass an explicit -p project name
+# distinct from the other two compose files' — Compose's default directory-derived project name is
+# shared across all three, and an `up`/`down` on one has already once recreated/removed another's
+# container (see docker-compose.local.yml / docker-compose.selfhost.yml headers).
 
 services:
   backend:

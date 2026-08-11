@@ -1,6 +1,9 @@
 # 0003 — RLS backstop via least-privileged app_user role
 
-- Status: Accepted
+- Status: **Superseded 2026-08-10** — RLS removed entirely under the single-user model. See
+  `0005-custom-auth-single-user.md` and `architecture-002`/`feature-017`. The `app_user` role
+  itself is kept (least-privilege DB access is still worthwhile without RLS), only the RLS
+  policies were dropped. Kept here for historical record.
 - Date: 2026-06-03
 
 ## Context

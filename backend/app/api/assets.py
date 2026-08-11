@@ -3,8 +3,7 @@ from decimal import Decimal
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import select, delete, and_, func
-from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy import select, delete, and_, func, update
 from sqlalchemy.exc import IntegrityError
 from typing import Optional
 from app.api.deps import get_session
@@ -12,16 +11,17 @@ from app.db.models import Asset, CryptoHolding, FixedIncomeHolding, ManualHoldin
 
 
 async def _complete_onboarding(session, user_id: uuid.UUID) -> None:
-    """Mark onboarding as completed for the user — idempotent upsert."""
-    stmt = (
-        pg_insert(User)
-        .values(id=user_id, onboarding_completed=True)
-        .on_conflict_do_update(
-            index_elements=["id"],
-            set_=dict(onboarding_completed=True)
-        )
+    """Mark onboarding as completed for the user.
+
+    A plain UPDATE, not an upsert: the single-user model guarantees a `users`
+    row already exists (created at first-run bootstrap, required before any
+    caller can even reach this authenticated endpoint) with a real
+    `password_hash` — an upsert-INSERT here would violate that NOT NULL
+    column, since this function has no password to supply.
+    """
+    await session.execute(
+        update(User).where(User.id == user_id).values(onboarding_completed=True)
     )
-    await session.execute(stmt)
 from app.services.fixed_income import compound_value, rd_current_value
 from app.core.auth import get_current_user_id
 

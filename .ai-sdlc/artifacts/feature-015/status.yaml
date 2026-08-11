@@ -1,0 +1,19 @@
+workflow: feature
+id: feature-015
+stage: complete
+status: completed
+approved: true
+approved_by: Founder (CEO)
+completed_at: '2026-08-10'
+created_at: '2026-08-06T10:37:28.428945'
+model_planning: claude
+model_implementation: manual
+model_rework: n/a
+model_qa: manual
+model_audit: claude
+implementation_note: >
+  Implementation, QA, and audit stages performed manually by the founder on the live VM,
+  not via the Gemini/Qwen pipeline — an infrastructure change requiring interactive
+  browser auth and admin-console access neither model can perform. This is the "perform
+  manual validation" path CEO can choose per SDLC.md when a stage can't run through the
+  standard model routing. See implementation.md and qa.md for what was done and verified.

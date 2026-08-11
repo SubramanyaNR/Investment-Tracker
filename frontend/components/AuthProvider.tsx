@@ -1,12 +1,11 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import type { Session, User } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabase";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { getMe, logout as apiLogout, refreshSession } from "@/lib/api";
 import LoginScreen from "./LoginScreen";
 
-const Ctx = createContext<{ user: User | null; signOut: () => Promise<void> }>({
-  user: null,
+const Ctx = createContext<{ userId: string | null; signOut: () => Promise<void> }>({
+  userId: null,
   signOut: async () => {},
 });
 
@@ -14,27 +13,42 @@ export function useAuth() {
   return useContext(Ctx);
 }
 
+// Access token is short-lived (15 min server-side default) — proactively refresh
+// well within that window so an open tab never hits a hard session expiry.
+const REFRESH_INTERVAL_MS = 10 * 60 * 1000;
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  async function checkSession() {
+    const me = await getMe();
+    setUserId(me?.user_id ?? null);
+  }
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setLoading(false);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
-      setSession(s);
-    });
-    return () => sub.subscription.unsubscribe();
+    checkSession().finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    if (!userId) return;
+    intervalRef.current = setInterval(async () => {
+      const ok = await refreshSession();
+      if (!ok) setUserId(null);
+    }, REFRESH_INTERVAL_MS);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [userId]);
+
   async function signOut() {
-    await supabase.auth.signOut();
+    await apiLogout();
+    setUserId(null);
   }
 
   if (loading) return null;
-  if (!session) return <LoginScreen />;
+  if (!userId) return <LoginScreen onSuccess={checkSession} />;
 
-  return <Ctx.Provider value={{ user: session.user, signOut }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ userId, signOut }}>{children}</Ctx.Provider>;
 }

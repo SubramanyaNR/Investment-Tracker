@@ -1,0 +1,23 @@
+## Review: feature-016 — Automated Local Backups (Daily)
+
+**Lenses: PM / Investor Advisor / CTO / Architect / Eng Lead / QA / Security**
+
+### Overall
+The planning review was solid and its own gap list (1–6) got real engineering follow-through — the QA-discovered timestamp-collision bug is a genuinely good catch, and the fix (temp-file + atomic `mv`) is correct. But the artifact as a whole has a **process gap and a couple of unaddressed risks** that should be called out before treating this as closed.
+
+### Process / Governance
+
+1. **Code Review stage is empty — not "not needed," literally skipped.** The artifact template has a Code Review section and it contains only the template comment. Given Gemini/Qwen both failed today (third time), Claude ended up doing Planning-review, Implementation, the bug fix, *and* QA verification of its own fix, with no independent second pass on the fix itself. The whole point of the multi-agent split (Gemini implements, Qwen tests, Claude orchestrates — see `[[ai-sdlc-orchestration-branch-unmerged]]`) is separation of duties; today's failures collapsed that to a single model self-checking its own work three features running. That's worth flagging as a systemic issue (agent quota/auth reliability), not just waving through on precedent from feature-015/017.
+2. **"Founder's message constitutes CEO approval"** was accepted for the original backup mechanism, but the timestamp-collision fix was a mid-flight code change discovered *during* QA — it went in without a fresh approval touchpoint or code review, even though it's a legitimate change to the mutation logic of a data-protection script. Low risk given the fix is narrowly scoped and well-tested, but it's the kind of silent scope drift CLAUDE.md's Change Discipline section says to avoid.
+
+### Security
+
+3. **Orphaned temp files bypass retention.** The fix writes to `$final.tmp.$$` and `mv`s on success; on crash/power-loss mid-run (or a kill -9), a `.tmp.$$` file could be left behind. Retention cleanup only globs `backups/*.sql.gz` (per planning item 4's tight-scoping requirement), so a `.tmp.$$` orphan is invisible to pruning and accumulates indefinitely — a smaller version of the exact disk-fill risk planning item 5 already flagged, now with a second leak path introduced by the fix itself. Worth a cleanup-stale-temp-files step (e.g., delete `.tmp.$$` older than a day) or at least a documented known-limitation line.
+4. **At-rest encryption not discussed.** These dumps contain real holdings/net-worth data in plaintext SQL. 700/600 permissions are the right baseline for a single-user local box, but nothing in planning or implementation considered whether the backups should be encrypted (e.g., in case of future multi-user access to the box, or if `db-init`/other new untracked directories in this session's git status indicate broader infra changes underway). Given "Investor trust / data accuracy" is an explicit lens here, this deserves at least an explicit accept-the-risk note in the runbook, not silence.
+5. **Cron log file permissions unaddressed.** `/var/log/it-backup.log` — if pg_dump errors ever echo connection details or partial data, default `/var/log` permissions may be world-readable. Minor, but same category as item 2 in planning (treat backup-adjacent artifacts like the DB itself).
+
+### QA Process Note
+Finding and fixing a real bug live during QA is good, but self-verifying your own same-session fix without a separate review pass is weaker evidence than the artifact's confident "Pass" framing suggests. Recommend labeling this fix as needing a lightweight independent double-check next time an agent is available, rather than treating QA's self-re-verification as equivalent to code review.
+
+### Verdict
+**Conditionally accept.** The core work is competent and the bug fix is real value delivered. Before calling this fully closed: (a) add a line to the runbook on the orphaned-`.tmp.$$`-file gap, (b) explicitly note encryption-at-rest was considered and deferred (not silently skipped), and (c) flag the repeated Gemini/Qwen failures as a process risk to raise with the founder — three features in one day with the adversarial-review split collapsed to a single model is a pattern, not a fluke.

@@ -26,7 +26,7 @@ frontend: build ## build + start frontend (prod) on :3000 -> /tmp/it-frontend.lo
 stop-frontend: ## stop frontend (frees :3000)
 	@-fuser -k 3000/tcp >/dev/null 2>&1; rm -f /tmp/it-frontend.pid; echo "frontend stopped"
 
-dev: backend frontend ## start full stack (backend + frontend prod; DB is Supabase, nothing local to start)
+dev: backend frontend ## start full stack (backend + frontend prod; DB is a long-running local Postgres container, nothing to start here)
 
 restart: stop backend frontend ## stop + rebuild + start everything
 
@@ -48,11 +48,22 @@ test: ## run backend unit tests (fast, no Docker)
 test-int: ## run backend integration tests (testcontainers Postgres; needs Docker)
 	cd $(BACKEND) && .venv/bin/python -m pytest -q -m integration
 
-backup: ## pg_dump the Supabase DB to ./backups (timestamped, keeps last 7)
-	@mkdir -p backups
-	@url="$$(grep -E '^DATABASE_URL=' $(BACKEND)/.env | sed 's/^DATABASE_URL=//; s/+asyncpg//')"; \
-	out="backups/it-$$(date +%Y%m%d-%H%M%S).sql"; \
-	docker run --rm postgres:17 pg_dump "$$url?sslmode=require" > "$$out" \
-	  && echo "wrote $$out ($$(du -h "$$out" | cut -f1))" \
-	  || { echo "backup FAILED"; rm -f "$$out"; exit 1; }
-	@ls -1t backups/*.sql 2>/dev/null | tail -n +8 | xargs -r rm -f
+DB_CONTAINER := investment_tracker_postgres
+DB_NAME := investment_tracker
+DB_USER := investment_admin
+
+backup: ## pg_dump the local Postgres container to ./backups (timestamped, gzipped, keeps last 30)
+	@mkdir -p backups && chmod 700 backups
+	@find backups -name '*.sql.gz.tmp.*' -mtime +1 -delete 2>/dev/null || true
+	@set -o pipefail; \
+	final="backups/it-$$(date +%Y%m%d-%H%M%S).sql.gz"; \
+	tmp="$$final.tmp.$$$$"; \
+	docker exec $(DB_CONTAINER) pg_dump -U $(DB_USER) $(DB_NAME) | gzip > "$$tmp" \
+	  || { echo "backup FAILED (pg_dump/gzip)"; rm -f "$$tmp"; exit 1; }; \
+	gzip -t "$$tmp" || { echo "backup FAILED (corrupt gzip)"; rm -f "$$tmp"; exit 1; }; \
+	bytes=$$(stat -c%s "$$tmp" 2>/dev/null || stat -f%z "$$tmp"); \
+	if [ "$$bytes" -lt 500 ]; then echo "backup FAILED (suspiciously small: $${bytes} bytes)"; rm -f "$$tmp"; exit 1; fi; \
+	chmod 600 "$$tmp"; \
+	mv "$$tmp" "$$final"; \
+	echo "wrote $$final ($$(du -h "$$final" | cut -f1))"
+	@ls -1t backups/*.sql.gz 2>/dev/null | tail -n +31 | xargs -r rm -f

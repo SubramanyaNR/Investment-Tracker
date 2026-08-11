@@ -19,6 +19,7 @@ never rewrite history — supersede with a new ADR instead.
 
 ## Index
 - [0001 — Monolith-first](0001-monolith-first.md)
-- [0002 — Supabase Auth with ES256 JWT verification](0002-supabase-auth-es256.md)
-- [0003 — RLS backstop via least-privileged app_user role](0003-rls-app_user-backstop.md)
+- [0002 — Supabase Auth with ES256 JWT verification](0002-supabase-auth-es256.md) — superseded by 0005
+- [0003 — RLS backstop via least-privileged app_user role](0003-rls-app_user-backstop.md) — superseded by 0005
 - [0004 — In-process market cache + rate limiting](0004-market-cache-and-rate-limiting.md)
+- [0005 — Custom bcrypt/HS256 auth, single-user, RLS removed](0005-custom-auth-single-user.md)
