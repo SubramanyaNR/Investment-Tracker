@@ -8,39 +8,19 @@ A **personal investment portfolio tracker** for a single Indian retail investor 
 
 **Problem:** No single platform tracks all of these together. The investor had to reconcile across 4-5 apps and a spreadsheet to understand true net worth, P&L, and allocation. This app unifies everything into one dashboard with live prices.
 
-**Eventual goal:** Launch as a paid SaaS at ₹99/month for Indian retail investors with the same multi-platform problem. Target market ~8 crore active retail investors in India.
+**Direction:** WealthSignal is an **open-source, self-hosted, single-user project** (MIT license) — not a hosted SaaS. The founder runs their own instance; anyone else who wants one runs their own too. See `.ai-sdlc/artifacts/architecture-002/` for the pivot's decision record and `docs/product/ROADMAP.md` for current build status.
 
 ## Vision
 
-A beautifully simple, privacy-respecting investment tracker for Indian retail investors who hold assets across multiple platforms. Not another broker app. Not another fintech with an agenda. Just honest, unified tracking.
-
-## Pricing model
-- 21-day free trial (no credit card required)
-- ₹99/month or ₹999/year
-- Early bird pricing for first 100 users (locks in forever)
-- Single plan, no free tier complexity at launch
+A beautifully simple, privacy-respecting investment tracker for Indian retail investors who hold assets across multiple platforms. Not another broker app. Not another fintech with an agenda. Not a hosted service holding your financial data — self-hosted, so your portfolio data never leaves infrastructure you control. Just honest, unified tracking.
 
 ## Target user
-Indian retail investor, 25-40, holds crypto + mutual funds + at least one fixed income instrument, frustrated by switching between 4-5 apps, willing to pay ₹99 for a unified view.
 
-## Hosting plan
-- Hetzner CX21 VPS (~$5/month) for up to ~10,000 users
-- Docker Compose (no Kubernetes needed at this scale)
-- Domain + Nginx + Certbot (HTTPS)
-- Backup container + rclone to Google Drive
-- UptimeRobot for monitoring
+An Indian retail investor who holds crypto + mutual funds + at least one fixed income instrument, is frustrated by switching between 4-5 apps, and is comfortable (or willing to become comfortable) running a small self-hosted app via Docker Compose rather than trusting a third party with brokerage-level financial data.
 
-## Distribution strategy (0 → 100 users)
-- r/IndiaInvestments, r/IndianStockMarket (organic posts)
-- Finance Twitter/X — build in public
-- Product Hunt launch
-- Telegram finance channels (sponsored posts ₹500-2000/channel)
-- No paid ads until conversion is proven
+## Distribution
 
-## Scale reference
-- 100 users → ₹9,900/month revenue, ~₹690/month costs → net ~₹9,200/month
-- 1000 users → ~₹99,000/month revenue, same $9 server cost
-- CoinGecko free tier sufficient at any user count with 60-second caching
+Open source on GitHub. No pricing, no trial, no billing integration, no growth funnel — value comes from the project being useful and self-hostable, not from a conversion strategy. Community adoption (if any) happens organically through people finding and running the repo.
 
 ## External services reference
 
@@ -49,8 +29,3 @@ Indian retail investor, 25-40, holds crypto + mutual funds + at least one fixed 
 | CoinGecko API | Crypto prices, top coins | Free (Demo) | 30 req/min |
 | MFAPI (mfapi.in) | MF NAV, scheme search | Free | No documented limit |
 | Google Gemini | AI portfolio insights | Free tier | Generous for low usage |
-| Razorpay | Payments (not yet integrated) | Pay per transaction | 2% per transaction |
-| Hetzner CX21 | VPS hosting (planned) | $5/month | 2 vCPU, 4GB RAM, 20TB traffic |
-| Cloudflare Registrar | Domain (planned) | ~$10/year | - |
-| Google Drive + rclone | Offsite backups (planned) | Free 15GB | - |
-| UptimeRobot | Uptime monitoring (planned) | Free | 50 monitors |
