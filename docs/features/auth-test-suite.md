@@ -1,157 +1,126 @@
-# Auth Test Suite — Automated Validation of JWT, Authorization & Multi-Tenancy
+# Auth Test Suite — Automated Validation of Custom bcrypt/HS256 Auth
 
-**Status:** ✅ Complete  
-**Completed:** 2026-06-12  
-**Scope:** Automated test coverage for SECURITY-AUDIT.md §7 validation matrices
+**Status:** ✅ Complete
+**Last updated:** 2026-08-13
+**Scope:** Automated test coverage for the custom bcrypt/HS256 auth cutover (ADR
+[0005](../architecture/decisions/0005-custom-auth-single-user.md)), which replaced Supabase Auth
+(ADR [0002](../architecture/decisions/0002-supabase-auth-es256.md)) as part of `architecture-002`.
 
 ## What was delivered
 
-Comprehensive automated test suite covering the authentication and multi-tenancy validation matrices from the security audit:
+Automated test coverage for every completion condition the CEO decision log
+(`.ai-sdlc/artifacts/architecture-002/planning.md`) required for the auth phase: login, token
+expiry/refresh, revocation, bootstrap, and ownership checks.
 
-### 1. JWT Validation Matrix (Integration Tests)
-**File:** `backend/tests/integration/test_auth_jwt.py` (16 test cases)
+### 1. Password hashing & JWT primitives (Unit)
+**File:** `backend/tests/unit/test_auth.py`
 
-Tests all JWT forgery scenarios via actual HTTP endpoints:
-- Valid token baseline
-- Expired tokens (exp in past) → 401
-- Wrong audience (aud mismatch) → 401
-- Wrong issuer (iss mismatch) → 401
-- Missing sub claim → 401
-- Missing exp claim → 401
-- Non-UUID sub value → 401
-- Algorithm downgrade attempts (alg=none, alg=HS256) → 401
-- Tampered payload → 401
-- Malformed/missing Authorization headers → 401
+- bcrypt hash/verify round trip, wrong password rejected, hash isn't the plaintext, malformed
+  hash fails closed
+- Access token: valid token returns `sub`, missing cookie / expired / missing `sub` / non-UUID
+  `sub` / wrong secret / `alg=none` / tampered payload / malformed token → 401
+- **Old Supabase-style ES256 token explicitly rejected** — confirms the JWKS/ES256 verification
+  path is gone, not just unused
+- Refresh token hashing: deterministic, hash isn't the raw value, expiry set in the future
+- CSRF: GET requests and the login path are exempt, requests with no session are exempt, missing
+  cookie / missing header / mismatched values rejected, matching values accepted
 
-These complement the unit-level tests in `backend/tests/unit/test_auth_verifier.py` by testing the full HTTP flow.
+### 2. Auth endpoints, end-to-end (Integration)
+**File:** `backend/tests/integration/test_auth_endpoints.py`
 
-### 2. Multi-Tenancy Isolation Matrix (Integration Tests)
-**File:** `backend/tests/integration/test_auth_isolation.py` (8 test cases)
+Tests the full HTTP flow through real endpoints:
+- Bootstrap creates the single admin user and is idempotent (guarded on "any user exists")
+- Login: correct credentials succeed, wrong password / unknown email rejected, repeated failures
+  rate-limited
+- `/me` requires a valid session
+- Refresh issues new tokens and rotates the refresh token; rejected without the refresh cookie
+- Logout revokes the refresh token
+- CSRF enforced on mutating requests (missing/wrong header rejected); login itself is CSRF-exempt
+- **Old-style Bearer token no longer accepted** — confirms cookie-based sessions fully replaced
+  the prior client-held-token model
 
-Validates two-user isolation across the full API:
-- Dashboard: User A sees only their portfolio totals, not User B's
-- Assets: User A's asset list excludes User B's holdings
-- Transactions: User A's transaction history is isolated
-- Valuations: User A's current valuations don't leak User B's data
-- Snapshots: User A's portfolio snapshots are separate
-- IDOR prevention: Cross-user DELETE → 404 (existence not leaked)
+### 3. Multi-tenancy / ownership isolation (Integration)
+**File:** `backend/tests/integration/test_auth_isolation.py`
 
-### 3. Rate Limiting Tests (Integration Tests)
-**File:** `backend/tests/integration/test_auth_ratelimit.py` (2 test cases + placeholders)
+Two-user isolation across the full API (app-layer `WHERE user_id = ...` filtering — the sole
+enforcement mechanism now that RLS has been removed per ADR 0005):
+- Dashboard, asset list, transactions, valuations, and snapshots each isolate by user
+- Cross-user DELETE → 404 (existence not leaked, not 403)
 
-- Authenticated user rate limiting: per-user limits enforced
-- Anonymous rate limiting: per-IP limits on public endpoints
-- (Full abuse matrix deferred to post-VPS phase)
-
-**Note:** Detailed rate-limit timing tests are in unit tests; integration layer verifies the gate is applied.
-
-### 4. Authorization Matrix (Pre-existing)
+### 4. Authorization matrix (Integration)
 **File:** `backend/tests/integration/test_authorization.py`
 
-Already covers:
-- All protected endpoints return 401 without authentication (15+ endpoints)
-- Public endpoints (e.g., /health) are accessible without tokens
+- Every protected endpoint returns 401 without authentication
+- Public endpoints (e.g. `/health`) remain accessible without a session
 
-## Test Results
+### 5. Rate limiting (Integration)
+**File:** `backend/tests/integration/test_auth_ratelimit.py`
 
-**Total new tests added:** 26 integration tests  
-**Total test count:** 102 integration tests passing (90 deselected = 12 new)  
-**All 171 backend tests passing** (unit + integration)
+- Authenticated per-user rate limit enforced
+- Anonymous per-IP rate limit enforced on public endpoints
+- (Precise window/timing behavior is covered in unit tests with mocked clocks, not here — timing
+  is fragile in CI)
+
+## Test results
 
 ```
-=== Integration Tests ===
-✅ 102 passed in 25.15s (including 26 new auth tests)
+backend/tests/unit/test_auth.py + integration/{test_auth_endpoints,test_auth_isolation,test_authorization}.py
+✅ 60 passed
 
-=== Key coverage ===
-- JWT validation: 16 scenarios (via HTTP)
-- Multi-tenancy: 8 scenarios
-- Authorization: 15+ endpoints (pre-existing)
-- Rate limiting: framework validated
+Full backend suite (unit + integration)
+✅ 211 passed
 ```
-
-## What was referenced
-
-From SECURITY-AUDIT.md §7 (Validation matrices):
-
-**Auth matrix (12 cases):**
-- Valid token, expired, wrong aud/iss, missing sub/exp, non-UUID sub, alg=none, alg=HS256, tampered, unknown-kid, forged-sig, malformed/missing header
-
-**Authorization matrix (15+ endpoints):**
-- Every protected endpoint → 401 without token
-- Cross-user operations (delete, sell, redeem, top-up) → 404
-
-**Multi-tenancy matrix (4 paths):**
-- Dashboard, assets, transactions, valuations, snapshots all filter by user_id
-
-**Abuse matrix (deferred to post-VPS):**
-- Rate limiting behavior, oversized payloads, repeated unknown-kid tokens
 
 ## How to run
 
 ```bash
-# Run all auth tests
+# Auth-only
 make test-int -k auth
 
-# Run specific suite
-make test-int -k test_auth_jwt
+# Specific suites
+make test-int -k test_auth_endpoints
 make test-int -k test_auth_isolation
 
-# Run full test suite (unit + integration)
+# Full backend suite
 make test-int
 ```
 
 ## Design decisions
 
-### 1. Integration vs. Unit split
-- **Unit tests** (`test_auth_verifier.py`): Validate JWT parsing logic in isolation
-- **Integration tests** (new): Test through actual HTTP endpoints to ensure end-to-end auth flow works
+### Integration vs. unit split
+- **Unit** (`test_auth.py`): password hashing and JWT/CSRF logic in isolation.
+- **Integration** (`test_auth_endpoints.py` etc.): full HTTP flow, so wiring bugs (middleware
+  order, cookie attributes, route dependencies) are caught, not just parsing bugs.
 
-Both are necessary; unit tests catch parsing bugs, integration tests catch wiring bugs.
+### IDOR test strategy
+Cross-user operations return **404, not 403**, to avoid leaking existence. Tests verify this is
+enforced (`test_delete_other_users_asset_returns_404`).
 
-### 2. Rate limiting deferred
-Full rate-limit testing (timing, window behavior, amplification) is deferred to post-VPS. Why:
-- Requires precise timing and controlled clock
-- Better tested in unit tests with time mocks
-- Integration layer just validates the gate is applied
+### RLS removed — app-layer filtering is now the only backstop
+ADR 0005 dropped all RLS tenant-isolation policies (single-user, self-hosted deployment — no
+other tenant to leak to). `test_auth_isolation.py` therefore validates isolation purely at the
+application layer; there is no database-level backstop left to fall back on if a `WHERE user_id`
+filter is ever forgotten. Re-run this suite after any change that touches query filtering.
 
-### 3. IDOR test strategy
-Cross-user operations return **404, not 403** to avoid leaking existence (per SECURITY-AUDIT.md). Tests verify this is enforced.
-
-### 4. Multi-tenancy via seeded data
-Tests use the integration `seed` fixture which:
-- Creates two users (USER_A, USER_B) with distinct, identifiable rows
-- Runs in an ephemeral PostgreSQL container with real schema + RLS
-- Verifies RLS policies enforce isolation at the database level
+### Old auth paths are tested as explicitly rejected, not just absent
+Both the ES256/JWKS token format and the Bearer-token transport from the pre-cutover (Supabase)
+auth model have dedicated rejection tests, rather than relying on their absence from the codebase.
 
 ## Known limitations
 
-### Rate limiting: Timing not tested
-Rate limit thresholds (100 requests per 60s) are tested via unit tests, not integration tests. Integration tests just verify the rate-limit gate is applied without testing exact window behavior. Why: precise timing is fragile in CI and better tested with mocks.
-
-### Abuse matrix incomplete
-Oversized payloads and repeated unknown-kid token amplification are deferred to post-VPS. Currently validated only conceptually via code review (A9 implements negative cache). Will be added once VPS provides real traffic patterns to test against.
-
-### JWKS kid rotation
-Negative cache and key rotation behavior (A9) are tested in unit tests; integration tests just verify 401 on unknown-kid without directly asserting cache behavior.
-
-## What changed
-
-New test files:
-- `backend/tests/integration/test_auth_jwt.py` (16 tests)
-- `backend/tests/integration/test_auth_isolation.py` (8 tests)
-- `backend/tests/integration/test_auth_ratelimit.py` (2 tests)
-
-No changes to existing code; tests only.
-
-## Next steps
-
-1. **Before VPS:** These tests run in CI and catch auth regressions
-2. **Post-VPS:** Complete abuse matrix tests (rate limiting timing, oversized payloads, amplification)
-3. **Ongoing:** Re-run matrices after auth/data-model changes (per SDLC.md §7)
+- **Rate limiting timing:** exact window behavior (100 req/60s) is unit-tested with mocked clocks,
+  not integration-tested — precise timing is fragile in CI.
+- **Abuse matrix incomplete:** oversized payloads and repeated-failure amplification patterns are
+  deferred to post-VPS-deploy, pending real traffic patterns to test against.
+- **Password reset:** by design, there is no in-app reset flow (ADR 0005) — admin resets via
+  `.env`/DB and restart, documented in a runbook, not covered by this test suite.
 
 ## References
 
-- **SECURITY-AUDIT.md §7:** Validation matrices (the source of truth)
-- **SDLC.md Step 5:** QA plan + re-validation of auth/tenancy
-- **AUTH.md:** Authentication architecture (what these tests verify)
-- **ROLES.md — QA Lead:** Test matrix requirements
+- **ADR 0005** — the decision record this suite validates.
+- **`.ai-sdlc/artifacts/architecture-002/planning.md`** — CEO decision log requiring this coverage
+  as a completion condition for the auth phase.
+- **AUTH.md** — authentication architecture these tests verify.
+- **SECURITY-AUDIT.md** — broader security posture; the multi-tenancy/authorization matrices here
+  originated from its validation matrices under the prior (Supabase) auth model and were carried
+  forward.
