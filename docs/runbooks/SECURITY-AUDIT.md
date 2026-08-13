@@ -1,12 +1,32 @@
 # Security Audit — Authentication & Multi-Tenancy
 
-**Date:** 2026-06-03
+**Date:** 2026-06-03 (original audit) — **superseded 2026-08-10** by the auth cutover below.
 **Scope:** Supabase auth + per-user data scoping (commits `a3c0552`, `b512e64` on `feature/supabase-auth`)
 **Reviewer perspective:** Staff Security Engineer / Principal Backend / SaaS Production Readiness
 **Method:** code review + executed tests (JWT forgery matrix, endpoint enforcement via TestClient, two-user isolation with transaction rollback, PyJWT/supabase-js library internals).
 
+> **⚠️ Architecture superseded (2026-08-10, `feature-017`, ADR [0005](../architecture/decisions/0005-custom-auth-single-user.md)).**
+> Sections 2, 3, and 11 below describe the **retired** Supabase ES256/JWKS auth + Postgres RLS
+> model. As of the OSS/self-hosted/single-user pivot (`architecture-002`):
+> - Auth is now **self-issued bcrypt password hashing + HS256 JWT** in httpOnly cookies (not
+>   Supabase, not a client-held Bearer token). See `AUTH.md` and ADR 0005.
+> - **RLS has been removed entirely** — no `app_user`/RLS backstop, no `tenant_isolation`
+>   policies, no `app.current_user_id` GUC. Ownership enforcement is **app-layer `WHERE user_id`
+>   filtering only** (single-user deployment; no other tenant to leak to). If this project ever
+>   becomes multi-tenant again, RLS or an equivalent must be reintroduced — it will not come back
+>   on its own.
+> - There is no Supabase dependency of any kind left in the app.
+> - Current auth test coverage lives in `backend/tests/unit/test_auth.py` and
+>   `backend/tests/integration/test_auth_endpoints.py` — see `docs/features/auth-test-suite.md`.
+>
+> The remediation backlog (§6) and multi-tenancy findings below remain as a **historical record**
+> of what was verified under the old model — most fixes described there (rate limiting, IDOR
+> checks, atomic upserts, account deletion, etc.) are still in place today; only the JWT/RLS
+> mechanics changed. Do not use §2/§3/§11 as current architecture reference.
+>
 > Living document. Update the **Remediation backlog** statuses as fixes land. Re-run the
-> validation matrices (Section 7) after any change to auth, queries, or the data model.
+> validation matrices (Section 7) after any change to auth, queries, or the data model — against
+> the **current** auth model, using `docs/features/auth-test-suite.md` as the up-to-date suite.
 
 ---
 
@@ -119,10 +139,10 @@ None confirmed.
 ### Medium
 | ID | Finding | Status |
 |---|---|---|
-| M1 | **No RLS / superuser DB role.** Any future missing `WHERE user_id` = full-tenant breach with no backstop. Add least-privileged role + RLS keyed on JWT `sub`. | FIXED (2026-06-03) — `app_user` role + RLS policies + per-request GUC; verified fail-closed & no cross-tenant leak. See §11. |
-| M2 | **No rate limiting + JWKS amplification (DoS).** Each unknown-`kid` token forces one outbound JWKS fetch (30s timeout, threadpool thread). Public uncached `/market/*` lets anon traffic burn upstream rate limits. | FIXED (2026-06-05, A5; 2026-06-05, A9) — `/market/*` cached + per-user rate limits + per-IP (per-client once nginx forwards XFF in B1; the Next proxy sends none). Unknown-`kid` JWKS negative cache added (A9): confirmed-bad kids cached for 60s, connection failures excluded. See ADR 0004. |
-| M3 | **OAuth `implicit` flow (token in URL).** supabase-js defaults to implicit → access/refresh tokens in URL fragment (history/referrer exposure). Set `flowType: 'pkce'`. | FIXED (2026-06-03) |
-| M4 | **No token revocation.** Stateless verify → deleted/banned user keeps access until `exp`. Mitigate with short token lifetime. | ACCEPTED-LIMITATION (Free plan) — session time-boxing + inactivity timeout are Supabase **Pro-only**; on Free we accept the default token lifetime (backend enforces `exp`, client auto-refreshes). No custom session-management code (deliberate). Revisit on Pro. See `DEPLOY.md` "Session controls (M4)". |
+| M1 | **No RLS / superuser DB role.** Any future missing `WHERE user_id` = full-tenant breach with no backstop. Add least-privileged role + RLS keyed on JWT `sub`. | HISTORICAL — FIXED (2026-06-03) under the Supabase model — `app_user` role + RLS policies + per-request GUC; verified fail-closed & no cross-tenant leak. See §11. **RLS was later removed entirely (2026-08-10, ADR 0005)** as a deliberate trade-off for the single-user pivot — this is now an accepted, documented gap, not a regression. See the superseded-architecture note at the top of this doc. |
+| M2 | **No rate limiting + JWKS amplification (DoS).** Each unknown-`kid` token forces one outbound JWKS fetch (30s timeout, threadpool thread). Public uncached `/market/*` lets anon traffic burn upstream rate limits. | FIXED (2026-06-05, A5; 2026-06-05, A9) — `/market/*` cached + per-user rate limits + per-IP (per-client once nginx forwards XFF in B1; the Next proxy sends none). Unknown-`kid` JWKS negative cache added (A9): confirmed-bad kids cached for 60s, connection failures excluded. See ADR 0004. Rate limiting itself carried forward into the current auth model (`test_auth_ratelimit.py`); the JWKS-specific mechanics are moot post-cutover (no JWKS anymore). |
+| M3 | **OAuth `implicit` flow (token in URL).** supabase-js defaults to implicit → access/refresh tokens in URL fragment (history/referrer exposure). Set `flowType: 'pkce'`. | HISTORICAL — FIXED (2026-06-03) under the Supabase model. Moot post-cutover: no Supabase, no OAuth flow, no supabase-js. |
+| M4 | **No token revocation.** Stateless verify → deleted/banned user keeps access until `exp`. Mitigate with short token lifetime. | **RESOLVED (2026-08-10, ADR 0005)** — the current auth model uses server-tracked, hashed refresh tokens rotated on every use; revocation on logout/password change is now real, not just short-lived-token mitigation. This is a strict improvement over the original Supabase-Free limitation described below (kept for history). ~~ACCEPTED-LIMITATION (Free plan) — session time-boxing + inactivity timeout are Supabase **Pro-only**; on Free we accept the default token lifetime (backend enforces `exp`, client auto-refreshes). No custom session-management code (deliberate). Revisit on Pro. See `DEPLOY.md` "Session controls (M4)".~~ |
 
 ### Low
 | ID | Finding | Status |
