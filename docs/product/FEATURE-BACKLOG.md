@@ -186,11 +186,12 @@ are current priority, ahead of the auth rewrite (Phase 2).*
 
 | ID | Feature | Status | Notes |
 |---|---|---|---|
-| O1 | **Automated backups + offsite copy** | 🟡 | No cron/backup currently runs at all; Supabase free tier has no auto-backup either. Highest severity — only item where failure mode is irreversible data loss. `backup.sh` on cron + rclone → Google Drive. |
-| O2 | **Host firewall (`ufw`, default-deny)** | 🟡 | Currently inactive; only Docker's own iptables rules gate inbound traffic. Explicit allows for SSH + app port. Prevents a repeat of the Postgres exposure incident by design, not just this one instance. |
+| O1 | **Automated backups + offsite copy** | 🟡 | Local half done 2026-08-10 (`feature-016`) — cron `make backup`, atomic gzipped `pg_dump`, integrity checks, 30-day retention. Offsite copy (rclone → Google Drive) still open, by explicit founder decision to ship local-only first. |
+| O2 | **Host firewall (`ufw`, default-deny)** | ✅ | Done 2026-08-13 (`feature-018`) — `ufw` active + `systemctl`-enabled, default-deny incoming, explicit allows for SSH/3000/`tailscale0`, `ufw-docker` installed. Confirmed persists across a real reboot. Docker-recreate regression check + external scan still open, founder to run directly — see `docs/runbooks/FIREWALL.md`. |
 | O3 | **Process supervision (systemd units)** | 🟡 | Backend (`uvicorn`) and frontend (`next start`) run as bare `nohup` processes, no auto-restart on reboot. |
 | O4 | **Tailscale for private HTTPS access** | ✅ | Done 2026-08-10 — implemented via `tailscale serve --bg http://localhost:3000` (Tailscale's CLI changed; raw `tailscale cert` as originally scoped doesn't auto-renew). Live at founder's `*.ts.net` hostname, reachable from VM + founder's phone (joined to same tailnet); `funnel status` confirmed off, nothing newly public. |
 | O5 | **Close plaintext port 3000 (founder's own instance, post-OSS-launch)** | 🟡 | Deliberately deferred, not forgotten. Port 3000 stays open now so a fresh `git clone` + `docker-compose up` works out-of-the-box for self-hosters — no Tailscale/nginx/TLS setup required to get a working install (decided 2026-08-10). After the OSS GitHub release, close 3000 on *this* founder instance specifically (loopback bind + `ufw` rule); personal access continues via the O4 Tailscale URL. Forks/other self-hosters keep the open-by-default behavior and decide their own hardening independently. |
+| O6 | **SSH key-based authentication (disable password login)** | 🟡 | VM currently only has password-based SSH login. Not a blocker for O2 (`ufw` filters by port/IP, not auth method) — logged separately as general access hardening. Add a public key, confirm key-based login works, then disable `PasswordAuthentication` in `sshd_config`. Low urgency, cheap to do. |
 
 **Sequencing:** these IDs map onto `docs/product/ROADMAP.md`'s flat numbered milestone list
 (renumbered 2026-08-06): O1=step 1, O2=step 2, O3=step 3, O4=step 4, auth rewrite=step 5, V2

@@ -24,6 +24,7 @@
 | Prod is broken | `runbooks/INCIDENT.md` |
 | Running locally / make targets / ports | `runbooks/LOCAL-DEV.md` |
 | Security posture / audit / open findings | `runbooks/SECURITY-AUDIT.md` |
+| Host firewall (`ufw` / `ufw-docker`) | `runbooks/FIREWALL.md` |
 | Destructive DB work | skill: `safe-db-op` |
 | Validating the UI in a prod build | skill: `e2e-ui-test` |
 

@@ -1,0 +1,49 @@
+# Review: Host Firewall with ufw-docker (O2)
+
+## Verdict
+Sound, well-scoped infrastructure hardening request. The reasoning is correct on the core technical point (Docker bypasses `ufw`'s INPUT chain by manipulating iptables `DOCKER` chains directly), the containment goal is well-justified by the actual incident, and the constraints section already anticipates the two things most likely to cause harm (SSH lockout, breaking Tailscale/3000). This is close to implementation-ready pending CEO approval. A few gaps worth closing before that approval is sought.
+
+## Technical / Architecture
+
+**`ufw-docker` is the right call, but confirm currency before relying on it.** It's the standard community fix for this exact problem (patching `after.rules` to route `DOCKER-USER`/published-port traffic through `ufw`'s decision chain). The alternative floated in the request — binding container ports to `127.0.0.1` per-service in `docker-compose.yml` — is actually the *more robust* primary control and isn't mutually exclusive with `ufw-docker`; worth doing both rather than treating them as either/or:
+- `127.0.0.1` binding in compose is declarative, versioned, reviewable in PRs, and doesn't depend on a third-party script surviving Docker upgrades.
+- `ufw-docker` is the safety net for services that *do* need to be host-reachable (3000) and for anything a future compose change accidentally publishes on `0.0.0.0`.
+
+Given the triggering incident was exactly "a port mapping mistake," defense-in-depth (compose binding + ufw-docker) is more consistent with the stated goal ("must remain unreachable... even if a port mapping mistake is made again") than ufw-docker alone. Recommend the plan explicitly say which services get `127.0.0.1`-bound in compose vs. rely solely on the firewall layer.
+
+**Maintenance burden not yet answered, and it should be before approval, not during implementation.** `ufw-docker`'s known failure mode is silent regression: Docker restarts can re-flush/reorder iptables rules, and `ufw-docker` needs to be reapplied or run as an install step (`ufw-docker install`) that persists via the `after.rules` file — it generally survives reboots once installed correctly, but Docker package upgrades have historically broken it (there are open upstream issues about this depending on Docker version). The plan should include a **post-install verification step** (e.g. attempt an external connection to 5432 from off-host, confirm it's refused, re-check after any `apt upgrade docker-ce` or `docker compose down/up`) rather than a one-time "install and forget." This is exactly the kind of thing that should go in the runbook, not just be done once.
+
+## SSH Lockout Risk (highest-severity concern)
+
+The request correctly flags this but doesn't yet commit to a sequence. Recommend the plan state explicitly, in order:
+1. Verify actual SSH port in use (don't assume 22) — check `sshd_config` and any cloud-init/Hetzner firewall config.
+2. Add the `ufw allow <ssh-port>/tcp` rule **and confirm it's active** (`ufw status verbose`) *before* `ufw enable` is ever run, not just before other allow rules.
+3. Keep the current SSH session open and open a **second, independent** SSH session after `ufw enable` to confirm access before closing the first. Never rely on a single session as the rollback path.
+4. State plainly whether Hetzner Cloud Console/rescue system access exists as a fallback (Hetzner Cloud VMs do have a serial/VNC console independent of network — this should be confirmed and documented, not assumed, since the request notes it's unconfirmed).
+
+Absent Hetzner console confirmation, this is a single-mistake-away-from-full-lockout change on a box with real user data and no stated recovery path. That alone should be treated as a go/no-go gate for the CEO approval, not just a planning note.
+
+## Product / Investor Experience
+
+No end-user-facing surface — correctly scoped as pure infra. No concerns here beyond noting that any downtime during the cutover (even seconds) affects a real, currently-in-use personal instance, not a staging box. Worth a one-line "expected downtime: none if sequenced correctly / a few seconds of SSH session risk during enable" in the plan so the CEO approval is informed about blast radius, not just mechanism.
+
+## QA / Validation
+
+The plan needs explicit test cases before being called complete, e.g.:
+- External scan (from outside the VM, e.g. `nmap` or `curl` from another host) confirming 5432 is unreachable, 3000 is reachable, SSH port is reachable.
+- Confirm Tailscale traffic (via `tailscale0`) still functions — e.g. `tailscale ping`/access an internal service over the tailnet — post-enable.
+- Confirm `docker compose down && docker compose up -d` doesn't silently reopen 5432 (this is the actual regression `ufw-docker` is meant to prevent — test it, don't just assume the patch holds).
+- Confirm firewall rules persist across a host reboot (`ufw` is systemd-enabled by default, but verify).
+
+None of this needs to happen now — it belongs in the SDLC QA stage — but the plan document should name these as acceptance criteria up front.
+
+## Governance
+
+Correctly identified as requiring CEO approval (infrastructure change, per CLAUDE.md gate list). Nothing to add here except: the SSH-lockout fallback question (Hetzner console access) should be answered *before* the approval request goes up, since it materially changes the risk being approved.
+
+## Summary of asks before this goes to approval
+1. Confirm Hetzner console/rescue access as an SSH fallback — state yes/no explicitly.
+2. Decide compose-level `127.0.0.1` binding as a complementary (not alternative) control alongside `ufw-docker`.
+3. Add a documented re-verification step for `ufw-docker` surviving Docker upgrades/restarts, not a one-time install.
+4. Name explicit rule-application order with a two-session SSH verification step before `ufw enable`.
+5. Name concrete acceptance tests (external scan, Tailscale check, compose down/up regression check, reboot persistence).

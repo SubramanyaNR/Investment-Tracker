@@ -68,6 +68,20 @@ The founder decided to pivot WealthSignal from a hosted, paid, multi-tenant SaaS
   radius of a successful interception is higher now — a stolen cookie is a full replayable session,
   not a per-call token. Founder-accepted for now per the O5 decision; revisit if/when that's
   reopened.
+- **AI-SDLC gated-stage artifacts don't capture the approval event itself** (`feature-018`,
+  2026-08-13) — the firewall change (O2) was correctly founder-approved before implementation, but
+  a host reboot mid-session interrupted the workflow before that approval was recorded in any
+  artifact, so the trail as written couldn't be distinguished from a skipped gate; only resolved by
+  asking the founder directly during audit. Workflow tooling should capture an approval
+  timestamp/actor at the moment `/approve` is run on a gated category, not rely on it being written
+  into planning prose. Flagged by the audit stage (`feature-018/audit.md`) as the top finding.
+- **SSH (`22/tcp`) has no rate-limiting** (`feature-018`, 2026-08-13) — `ufw allow 22/tcp` with no
+  `ufw limit` or fail2ban companion. Standard, low-cost hardening step for an internet-facing SSH
+  port; not applied yet. Not blocking, logged as a follow-up.
+- **Two firewall (O2) acceptance checks still unverified** (`feature-018`, 2026-08-13) — the
+  Docker-container-recreate regression check (the actual scenario `ufw-docker` exists to catch) and
+  an external port scan. Both need to be run by the founder directly (one touches live production
+  state, the other needs a vantage point outside the VM) — see `docs/runbooks/FIREWALL.md`.
 
 ---
 
@@ -80,16 +94,23 @@ incident this week: BSI/CERT-Bund flagged the self-host sandbox Postgres contain
 exposed on `0.0.0.0:5432`, fixed same day by rebinding to `127.0.0.1`. See `FEATURE-BACKLOG.md`
 `O1`–`O4` for the same items tracked with IDs.*
 
-### 1. Backups + offsite copy  ← current priority
-No automated backups exist today (no cron, no offsite copy). Real portfolio data lives on Supabase
-free tier, which has no auto-backup either. Highest-severity item on this whole list: the only one
-where the failure mode is irreversible data loss. Wire up `backup.sh` on a cron schedule + offsite
-copy (rclone → Google Drive, per existing plan).
+### 1. Backups — local ✅ done 2026-08-10, offsite still open  ← current priority
+Local half done (`feature-016`): cron `make backup` at 3am, atomic gzipped `pg_dump` to
+`./backups/`, integrity-checked (gzip test + min-size check), 30-day retention, self-healing
+orphan-tmp-file cleanup. See `docs/runbooks/BACKUP-RESTORE.md`.
 
-### 2. Host firewall
-`ufw` is currently inactive; only Docker's own iptables rules gate inbound traffic. Enable
-default-deny with explicit allows (SSH, app port) so a misconfigured `docker-compose` port mapping
-can't silently expose a service again, the way it did this week.
+Still open — **offsite copy**. Local-only was an explicit founder decision (this VM's local
+Postgres is still the *only* copy of the data — protects against everyday mistakes like a bad
+migration or accidental `DELETE`, but not whole-disk/VM loss). rclone → Google Drive (or push to
+another personal device over Tailscale) remains the plan whenever that residual risk stops being
+acceptable.
+
+### 2. Host firewall ✅ done 2026-08-13
+`ufw` active and `systemctl`-enabled (confirmed persists across a real reboot), default-deny
+incoming with explicit allows (SSH `22`, app port `3000`, `tailscale0`). `ufw-docker` installed so
+Docker-published ports can't silently bypass `ufw` the way the triggering incident did. See
+`docs/runbooks/FIREWALL.md`. Two acceptance checks (Docker-recreate regression, external scan)
+still need the founder to run directly — see tech-debt above.
 
 ### 3. Process supervision
 Backend (`uvicorn`) and frontend (`next start`) currently run as bare `nohup` processes with no
