@@ -1,11 +1,29 @@
 workflow: architecture
 id: architecture-002
-stage: implementation
-status: active
+stage: audit
+status: completed
 approved: true
 phase1_note: Implemented directly by Claude (Gemini hit daily free-tier quota exhaustion), not via
   the automated model_implementation adapter. See implementation.md.
 created_at: '2026-07-30T10:41:26.303393'
+completed_at: '2026-08-13'
+closure_note: >
+  This workflow's own artifacts only ever cover Phase 1 (sandboxed Postgres in Docker,
+  implementation.md) — qa.md/audit.md/code_review.md were never filled in for that phase. Phases 2
+  and 3 of the plan this workflow approved were carried out under separate, later workflows rather
+  than by advancing this one:
+    - Phase 2 (auth rewrite: bcrypt/HS256, RLS removal, refresh-token revocation) was delivered and
+      gated under feature-017 (2026-08-10, status: completed), formalized in ADR 0005. Test
+      coverage confirmed passing (60 auth tests, 211 full backend suite) 2026-08-13.
+    - Phase 3 (real Supabase data migration) was descoped by explicit founder decision recorded in
+      feature-017/request.md: existing Supabase data was abandoned in place, not migrated, so the
+      backup/verified-restore/rollback gate this workflow specified became moot. A post-repoint
+      smoke test served as the hard rollback gate instead.
+    - Firewall hardening (O2) shipped separately under feature-018.
+  Remaining open items from this workflow's plan, not yet done: VISION.md rewrite (still describes
+  old paid-SaaS positioning), LICENSE file (MIT decided, not added), stale Supabase/RLS references
+  in SECURITY-AUDIT.md/DEPLOY.md. Tracked in docs/product/ROADMAP.md tech debt, not blocking
+  closure of this architecture workflow itself.
 model_planning: claude
 model_implementation: gemini
 model_rework: gemini
