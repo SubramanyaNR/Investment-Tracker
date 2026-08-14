@@ -25,6 +25,7 @@
 | Running locally / make targets / ports | `runbooks/LOCAL-DEV.md` |
 | Security posture / audit / open findings | `runbooks/SECURITY-AUDIT.md` |
 | Host firewall (`ufw` / `ufw-docker`) | `runbooks/FIREWALL.md` |
+| Process supervision (systemd, backend/frontend) | `runbooks/PROCESS-SUPERVISION.md` |
 | Destructive DB work | skill: `safe-db-op` |
 | Validating the UI in a prod build | skill: `e2e-ui-test` |
 

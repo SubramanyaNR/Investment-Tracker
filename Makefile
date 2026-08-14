@@ -4,36 +4,42 @@ FRONTEND := frontend
 API := http://127.0.0.1:8000
 WEB := http://127.0.0.1:3000
 
-.PHONY: help backend stop-backend build frontend stop-frontend dev restart stop logs validate migrate test test-int
+.PHONY: help backend stop-backend build frontend stop-frontend dev restart stop logs validate migrate test test-int install-services
 
 help: ## list targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-14s\033[0m %s\n",$$1,$$2}'
 
-backend: ## start backend on 127.0.0.1:8000 -> /tmp/it-backend.log
-	@cd $(BACKEND) && nohup .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 >/tmp/it-backend.log 2>&1 & echo $$! >/tmp/it-backend.pid
-	@sleep 1 && echo "backend started (pid $$(cat /tmp/it-backend.pid))"
+install-services: ## one-time: install/enable systemd units for backend + frontend (run after editing deploy/systemd/*.service)
+	cp deploy/systemd/it-backend.service deploy/systemd/it-frontend.service /etc/systemd/system/
+	systemctl daemon-reload
+	systemctl enable it-backend it-frontend
+	@echo "installed. use 'make backend'/'make frontend'/'make dev' to start."
 
-stop-backend: ## stop backend (frees :8000)
-	@-fuser -k 8000/tcp >/dev/null 2>&1; rm -f /tmp/it-backend.pid; echo "backend stopped"
+backend: ## (re)start backend via systemd, picks up code changes on restart
+	systemctl restart it-backend
+	@sleep 1 && systemctl --no-pager --lines=0 status it-backend
+
+stop-backend: ## stop backend
+	systemctl stop it-backend
 
 build: ## production build of frontend
 	cd $(FRONTEND) && npm run build
 
-frontend: build ## build + start frontend (prod) on :3000 -> /tmp/it-frontend.log
-	@cd $(FRONTEND) && nohup npm start >/tmp/it-frontend.log 2>&1 & echo $$! >/tmp/it-frontend.pid
-	@sleep 2 && echo "frontend started (pid $$(cat /tmp/it-frontend.pid))"
+frontend: build ## build + (re)start frontend via systemd, picks up new build on restart
+	systemctl restart it-frontend
+	@sleep 2 && systemctl --no-pager --lines=0 status it-frontend
 
-stop-frontend: ## stop frontend (frees :3000)
-	@-fuser -k 3000/tcp >/dev/null 2>&1; rm -f /tmp/it-frontend.pid; echo "frontend stopped"
+stop-frontend: ## stop frontend
+	systemctl stop it-frontend
 
-dev: backend frontend ## start full stack (backend + frontend prod; DB is a long-running local Postgres container, nothing to start here)
+dev: backend frontend ## (re)start full stack (backend + frontend); DB is a long-running local Postgres container, nothing to start here
 
-restart: stop backend frontend ## stop + rebuild + start everything
+restart: dev ## alias for dev — stop/rebuild/start everything via systemd
 
 stop: stop-frontend stop-backend ## stop backend + frontend
 
-logs: ## tail both logs
-	tail -n 40 -f /tmp/it-backend.log /tmp/it-frontend.log
+logs: ## tail both logs (systemd journal)
+	journalctl -u it-backend -u it-frontend -f -n 40
 
 validate: ## quick health check of running stack
 	@curl -s -m 5 $(API)/health >/dev/null && echo "backend: ok" || echo "backend: DOWN"

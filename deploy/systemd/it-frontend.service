@@ -1,0 +1,17 @@
+[Unit]
+Description=WealthSignal frontend (next start)
+After=network-online.target it-backend.service
+Wants=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/Investment-Tracker/frontend
+ExecStart=/usr/bin/npm start
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

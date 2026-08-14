@@ -1,0 +1,28 @@
+## Audit: Process Supervision (systemd) — O3 / feature-019
+
+**Planning gaps — resolution check**
+
+1. Service user: resolved (root, matches CEO-approved decision cited in Implementation).
+2. Makefile repoint: resolved and verified (QA confirms no leftover nohup/PID paths, systemctl-only).
+3. Postgres readiness: resolved with a real justification, not an assumption — the implementer checked `bootstrap_admin_user()` in `lifespan` and confirmed it crashes hard rather than retrying, so `Restart=on-failure`/`RestartSec=5` alone is correct without an `ExecStartPre` wait loop. This is exactly the kind of check the planning stage asked for rather than skipped.
+4. Log destination: resolved (journal-only, as recommended).
+
+All four planning gates are closed with evidence, not assertion.
+
+**Process integrity note**
+
+Both the Implementation and QA stages record that their respective automated adapters (Gemini quota, Qwen/OpenRouter 401) were unavailable and work was done manually by Claude in-session instead. That's a legitimate documented fallback, not a hidden shortcut — but it means this feature had no independent second-model implementation or test pass, only self-reported verification. Worth naming explicitly at approval: the review/test independence the multi-agent setup is designed to provide didn't happen here.
+
+**Verification quality**
+
+- Crash recovery and clean-stop-non-resurrection were both directly exercised (kill -9, timed check after `make stop-backend`), which is the one behavior most likely to silently regress and the QA report treats it as the highest-risk item correctly.
+- Secrets-not-leaked-via-`systemctl status`` was checked, appropriate given `EnvironmentFile=`.
+- Two items remain genuinely open, not just hedged: **actual reboot persistence** (the acceptance criterion that matters most for the original problem — "does it survive an unattended reboot" — was deliberately not exercised) and **frontend crash recovery** (inferred by symmetry, not tested). Both are correctly flagged rather than glossed over, but this means the feature's core claim is unverified in the one condition it exists for.
+
+**New item surfaced, correctly deferred**
+
+The 404 scanner traffic (`/trpc`, `/auth/get-session`, etc.) is out of scope for O3 and correctly not touched, but the open question — whether the frontend's `/api` proxy forwards arbitrary unauthenticated paths to the backend — is a legitimate security-backlog candidate given [[frontend-accessed-by-vm-ip-via-api-proxy]] and the existing [[security-audit-and-hardening-backlog]]. Worth folding into that backlog rather than opening a new thread.
+
+**Recommendation**
+
+Approvable as functionally complete for the crash-recovery and dev-workflow-conflict problems (both directly verified), but not yet fully closable against its original goal (reboot survival) until a real reboot is run. Suggest treating the reboot test as a required follow-up before marking O3 done, not as optional polish — it's the one scenario a systemd unit file can get subtly wrong (unit not actually enabled at the right target, ordering against `docker.service` failing cold, etc.) that no amount of `kill -9` testing substitutes for.
