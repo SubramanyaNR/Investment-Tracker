@@ -1,7 +1,7 @@
 # Implementation: Host Firewall with ufw-docker (O2)
 
 ## Status
-Live on the production VPS (`167.233.141.50`) as of 2026-08-13. Applied following the exact
+Live on the production VPS (`<vps-ip>`) as of 2026-08-13. Applied following the exact
 SSH-lockout-safe sequence from `planning.md` §4 (allow rules staged before enable, two-session
 verification before closing the original session, re-verified after `ufw-docker install`).
 

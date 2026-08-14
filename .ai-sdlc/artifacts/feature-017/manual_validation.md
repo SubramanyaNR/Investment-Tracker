@@ -7,7 +7,7 @@ this stage, just the closing checklist per SDLC.md's lifecycle.
 - [x] 15 live adversarial `curl` checks against the actual cut-over instance (not mocks)
 - [x] Real-browser e2e (`e2e-ui-test` skill, headless Chromium, production build): sign-in,
       dashboard load, theme toggle, asset-type switching all pass
-- [x] Login/session verified against both real access paths: `http://167.233.141.50:3000`
+- [x] Login/session verified against both real access paths: `http://<vps-ip>:3000`
       (plaintext public IP) and `https://madhyastha-lab-server.tail40a80c.ts.net` (Tailscale HTTPS)
 - [x] Schema verified directly via `psql`: 12 tables, RLS off on all of them, `app_user` role present
 - [x] Two real bugs caught and fixed before this point: `manual_holdings` RLS omission,

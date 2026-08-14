@@ -73,7 +73,7 @@ The four gated categories (architecture, DB schema, migrations, auth/security) a
 - **Bootstrap idempotency.** `ADMIN_EMAIL`/`ADMIN_PASSWORD` staying in `.env` after first run is a footgun — if bootstrap re-runs on every restart (container recreate, crash loop), does it reset the admin password back to the env value every time? Needs an explicit "already bootstrapped" guard (e.g., check `users` table non-empty) before write.
 - **No brute-force protection mentioned.** Single-user system, but it's now the *only* front door (no email reset). A basic rate limit or lockout on login is cheap insurance against being locked out by an attacker guessing, or against your own automation hammering the endpoint.
 - **Lockout recovery path.** No email reset by design — fine — but there's no stated fallback if the bootstrap or login path has a bug post-cutover. Recommend documenting (in the runbook, not code) a manual SQL path to reset `password_hash` directly, so a bug doesn't strand the only account.
-- **Cookie domain/scope risk, specific to this deployment.** Per prior session state, the frontend is reached via VM IP through a same-origin `/api` proxy, and the box's real IP recently changed (172.23.80.6 → 167.233.141.50 per earlier confirmation). This is the *first* time cookie-based session storage is being introduced (Supabase's client SDK previously owned token storage). Cookie `Domain`/`Secure`/`SameSite` settings need to be verified against however the app is actually being accessed today, not assumed from local dev — this is a plausible silent-failure point (login succeeds, cookie never gets sent back) that's easy to miss until manual testing.
+- **Cookie domain/scope risk, specific to this deployment.** Per prior session state, the frontend is reached via VM IP through a same-origin `/api` proxy, and the box's real IP recently changed (172.23.80.6 → <vps-ip> per earlier confirmation). This is the *first* time cookie-based session storage is being introduced (Supabase's client SDK previously owned token storage). Cookie `Domain`/`Secure`/`SameSite` settings need to be verified against however the app is actually being accessed today, not assumed from local dev — this is a plausible silent-failure point (login succeeds, cookie never gets sent back) that's easy to miss until manual testing.
 
 ## Architecture / Technical
 - Two-container split (disposable sandbox vs. real target) is the right call and matches earlier planning — good that it's carried forward rather than collapsed for convenience.
@@ -179,7 +179,7 @@ explicitly disregarded existing Supabase data).
 4. `backend/.env` repointed: `DATABASE_URL`/`ADMIN_DATABASE_URL` → new container, `DB_SSL=`
    (no TLS locally), Supabase vars removed, new auth vars added.
 5. Backend restarted — bootstrap log confirmed: `auth.bootstrap.created_admin
-   email=nrsubramanya77@gmail.com`.
+   email=admin@example.com`.
 6. Frontend rebuilt (`npm run build`, picks up the Supabase-SDK removal) and restarted.
 
 
@@ -251,7 +251,7 @@ frontend proxy.
   not a code gap.
 - **Cookie/access-path verification against the real environment** (Planning item 6, audit's
   sharpest finding) — closed for real: login + session check now verified end-to-end via `curl`
-  against both `http://167.233.141.50:3000` (the real public IP) and
+  against both `http://<vps-ip>:3000` (the real public IP) and
   `https://madhyastha-lab-server.tail40a80c.ts.net` (the real Tailscale URL), not just `127.0.0.1`.
   Both work correctly.
 - **`COOKIE_SECURE=false` on a public-IP-reachable box** (audit's new-risk finding) — not fixed

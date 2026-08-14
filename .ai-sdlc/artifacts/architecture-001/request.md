@@ -29,7 +29,7 @@ posture, matching roadmap milestones V2–V7 (`docs/product/ROADMAP.md`, `TASKS-
 - No `.github/workflows/` directory
 - No `backups/` directory, no cron entries, no backup has ever run on this VM
 - DB is Supabase-managed Postgres (not local) — confirmed via `backend/.env` `ADMIN_DATABASE_URL`
-- This VM's real IP is `167.233.141.50` (memory/docs still reference the *previous* VM's IP,
+- This VM's real IP is `<vps-ip>` (memory/docs still reference the *previous* VM's IP,
   `172.23.80.6` — needs correcting regardless of this workflow's outcome)
 - App itself is functional: frontend builds clean, backend healthy, core product features (asset
   mgmt, XIRR, CSV import, performance movers, onboarding, CSV export) already shipped to `master`

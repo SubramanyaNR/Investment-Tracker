@@ -2,7 +2,7 @@
 
 ## User Request
 
-Set up Tailscale on this VM (`167.233.141.50`) for private HTTPS access via `tailscale cert`.
+Set up Tailscale on this VM (`<vps-ip>`) for private HTTPS access via `tailscale cert`.
 
 ## Context
 
@@ -38,7 +38,7 @@ step 6) — that decision is explicitly deferred until after this task, not part
   behind the frontend's `/api` proxy) over HTTPS via this cert — reachable only over the Tailscale
   network, not the public internet.
 - **Nothing new should be exposed to the public internet.** No new public-facing ports, no public
-  DNS record, no changes to what's currently reachable from `167.233.141.50` on the open internet.
+  DNS record, no changes to what's currently reachable from `<vps-ip>` on the open internet.
 - Existing access patterns (whatever currently works for reaching the app) should keep working
   unless explicitly superseded by the new Tailscale HTTPS URL — confirm with the founder before
   removing/breaking the current access method.
@@ -62,5 +62,5 @@ step 6) — that decision is explicitly deferred until after this task, not part
   the public domain path) should happen without a separate explicit approval.
 - Validate the change actually works (not just "should work"): confirm the app is reachable over
   the new Tailscale HTTPS URL from a client on the tailnet, and confirm nothing new is reachable
-  from the public internet after the change (e.g. re-check exposed ports on `167.233.141.50`,
+  from the public internet after the change (e.g. re-check exposed ports on `<vps-ip>`,
   similar to how the Postgres exposure was verified fixed this week).

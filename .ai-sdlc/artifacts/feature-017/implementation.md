@@ -75,5 +75,5 @@ explicitly disregarded existing Supabase data).
 4. `backend/.env` repointed: `DATABASE_URL`/`ADMIN_DATABASE_URL` → new container, `DB_SSL=`
    (no TLS locally), Supabase vars removed, new auth vars added.
 5. Backend restarted — bootstrap log confirmed: `auth.bootstrap.created_admin
-   email=nrsubramanya77@gmail.com`.
+   email=admin@example.com`.
 6. Frontend rebuilt (`npm run build`, picks up the Supabase-SDK removal) and restarted.

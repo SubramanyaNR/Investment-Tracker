@@ -1,39 +1,67 @@
-# Container stack for the VPS deploy. NOTE: the VM currently runs the app via `make dev`
-# (uvicorn + `next start`) against docker-compose.local.yml's Postgres container — this file is the
-# basis for a future fully-containerized deploy, whose container networking, frontend
-# `output: "standalone"` build, the same-origin proxy target, and nginx + Certbot (TLS) are
-# finalized in docs/runbooks/DEPLOY.md (roadmap B1). Until then, do not treat `docker compose up`
-# on this file as the production path.
+# One-command self-host stack for external self-hosters (README "Quick start").
 #
-# There is NO local Postgres service defined here — that's docker-compose.local.yml (real data) /
-# docker-compose.selfhost.yml (disposable sandbox). All backend configuration, including the
-# request-path `app_user` DATABASE_URL and the admin ADMIN_DATABASE_URL, comes from ./backend/.env.
-# NEVER hardcode a DATABASE_URL here.
+# `cp .env.example .env`, fill in POSTGRES_PASSWORD / JWT_SECRET / ADMIN_EMAIL / ADMIN_PASSWORD,
+# then `docker compose up -d --build`. Runs postgres + backend (runs Alembic migrations on boot,
+# then uvicorn) + frontend.
 #
-# If this file is ever brought up with `docker compose up`, pass an explicit -p project name
-# distinct from the other two compose files' — Compose's default directory-derived project name is
-# shared across all three, and an `up`/`down` on one has already once recreated/removed another's
-# container (see docker-compose.local.yml / docker-compose.selfhost.yml headers).
+# This is a separate stack from docker-compose.local.yml (the founder's own real-data Postgres
+# container, driven by the Makefile/systemd path) and docker-compose.selfhost.yml (a disposable
+# migration-dry-run sandbox). If you ever bring more than one of these up on the same host, pass
+# distinct `-p` project names — Compose's default directory-derived project name is shared across
+# all three, and an `up`/`down` on one has previously recreated/removed another's container.
 
 services:
+  postgres:
+    image: postgres:16
+    container_name: wealthsignal_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-investment_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-investment_tracker}
+    volumes:
+      - wealthsignal_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-investment_admin} -d ${POSTGRES_DB:-investment_tracker}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   backend:
     build: ./backend
-    container_name: investment_backend
+    container_name: wealthsignal_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      # Overrides whatever's in .env — inside Compose's network, Postgres is reached by service
+      # name, not localhost. No RLS/multi-role split (single-user app), so both DSNs match.
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-investment_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-investment_tracker}
+      ADMIN_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-investment_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-investment_tracker}
+      DB_SSL: ""
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     ports:
       - "8000:8000"
-    env_file:
-      - ./backend/.env
 
   frontend:
     build:
       context: ./frontend
       args:
-        # MUST stay /api (same-origin proxy) — never localhost:8000 or a VM/VPS IP.
-        # The container proxy target and Supabase build args are finalized in B1 (DEPLOY.md);
-        # a containerised frontend build is not production-ready until then.
+        # MUST stay /api (same-origin proxy) — never localhost:8000 or a server IP.
         NEXT_PUBLIC_API_BASE_URL: /api
-    container_name: investment_frontend
-    ports:
-      - "3000:3000"
+        # Build-time only (baked into routes-manifest.json, see next.config.ts) — 127.0.0.1
+        # inside this container is itself, not the backend container, so the server-side /api
+        # rewrite must target the backend service by its Compose DNS name instead.
+        BACKEND_INTERNAL_URL: http://backend:8000
+    container_name: wealthsignal_frontend
+    restart: unless-stopped
     depends_on:
       - backend
+    ports:
+      - "3000:3000"
+
+volumes:
+  wealthsignal_postgres_data:

@@ -67,7 +67,7 @@ Correctly flagged as infrastructure requiring CEO approval per CLAUDE.md — thi
 # Implementation: Process Supervision (systemd) — O3
 
 ## Status
-Live on the production VPS (`167.233.141.50`) as of 2026-08-13. Implemented directly by Claude
+Live on the production VPS (`<vps-ip>`) as of 2026-08-13. Implemented directly by Claude
 (not the Gemini adapter — daily free-tier quota for `generativelanguage.googleapis.com` was
 already exhausted today from `feature-018`'s implementation runs; same failure mode, documented
 in memory as a known limitation).

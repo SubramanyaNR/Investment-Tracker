@@ -61,7 +61,7 @@ frontend proxy.
   not a code gap.
 - **Cookie/access-path verification against the real environment** (Planning item 6, audit's
   sharpest finding) — closed for real: login + session check now verified end-to-end via `curl`
-  against both `http://167.233.141.50:3000` (the real public IP) and
+  against both `http://<vps-ip>:3000` (the real public IP) and
   `https://madhyastha-lab-server.tail40a80c.ts.net` (the real Tailscale URL), not just `127.0.0.1`.
   Both work correctly.
 - **`COOKIE_SECURE=false` on a public-IP-reachable box** (audit's new-risk finding) — not fixed

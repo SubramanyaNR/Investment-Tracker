@@ -1,6 +1,6 @@
 # Runbook — process supervision (systemd)
 
-> Status: **live** on the production VPS (`167.233.141.50`). Implements roadmap `O3` /
+> Status: **live** on the production VPS (`<vps-ip>`). Implements roadmap `O3` /
 > `feature-019`. See `.ai-sdlc/artifacts/feature-019/` for the full planning/QA record.
 
 ## What's in place

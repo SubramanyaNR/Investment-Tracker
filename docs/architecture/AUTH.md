@@ -59,7 +59,7 @@ independent of RLS. Migrations + the scheduler use a separate **admin** connecti
 - **Locked-out admin recovery**: no email reset (no mail service) — see
   `../runbooks/ADMIN-ACCOUNT-RECOVERY.md` for the direct-DB-edit path.
 - **Cookies travel in plaintext on the public-IP path.** Verified 2026-08-10: login works
-  end-to-end both via the plaintext public IP (`http://167.233.141.50:3000`) and the Tailscale
+  end-to-end both via the plaintext public IP (`http://<vps-ip>:3000`) and the Tailscale
   HTTPS URL — same-origin `/api` proxying means no explicit cookie `Domain` is needed either way.
   But `COOKIE_SECURE=false` means the plaintext path sends `access_token`/`refresh_token` in the
   clear over the public internet — anyone on-path between a client and this VM could capture an

@@ -115,7 +115,7 @@ Correctly identified as requiring CEO approval (infrastructure change, per CLAUD
    guards against is exactly the triggering incident.
 3. **Re-verification step.** Add to `docs/runbooks/DEPLOY.md` (or a new `FIREWALL.md` runbook,
    implementer's call): after any `apt upgrade docker-ce*`, `docker compose down && up`, or host
-   reboot, re-run from an external host: `nmap -p 22,3000,5432,5433 167.233.141.50` (or `curl -m3`
+   reboot, re-run from an external host: `nmap -p 22,3000,5432,5433 <vps-ip>` (or `curl -m3`
    per port) confirming 22/3000 open and 5432/5433 closed, plus `ufw status verbose` confirming
    rules still active. This is a recurring manual check, not automated monitoring — acceptable
    given this is a personal instance, but should be written down so it isn't forgotten after the
@@ -152,7 +152,7 @@ Correctly identified as requiring CEO approval (infrastructure change, per CLAUD
 # Implementation: Host Firewall with ufw-docker (O2)
 
 ## Status
-Live on the production VPS (`167.233.141.50`) as of 2026-08-13. Applied following the exact
+Live on the production VPS (`<vps-ip>`) as of 2026-08-13. Applied following the exact
 SSH-lockout-safe sequence from `planning.md` §4 (allow rules staged before enable, two-session
 verification before closing the original session, re-verified after `ufw-docker install`).
 

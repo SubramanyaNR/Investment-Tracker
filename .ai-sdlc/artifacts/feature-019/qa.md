@@ -56,7 +56,7 @@ under the new systemd supervision, not just that the units are `active`:
 - `POST /auth/login` (direct, `127.0.0.1:8000`) with the bootstrap admin credentials from
   `backend/.env` → `200`, sets `access_token`/`refresh_token`/`csrf_token` cookies.
 - `GET /auth/me` with the resulting session cookie → `200`, resolves the correct `user_id`.
-- Same login flow repeated through the frontend `/api` proxy (`167.233.141.50:3000/api/auth/login`,
+- Same login flow repeated through the frontend `/api` proxy (`<vps-ip>:3000/api/auth/login`,
   `[[frontend-accessed-by-vm-ip-via-api-proxy]]`) → `200`, identical `user_id` — confirms the
   proxy path works end-to-end under systemd, not just the direct backend port.
 

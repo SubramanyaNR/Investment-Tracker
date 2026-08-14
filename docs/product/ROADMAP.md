@@ -58,7 +58,7 @@ The founder decided to pivot WealthSignal from a hosted, paid, multi-tenant SaaS
   security model that no longer exists; worth a dedicated pass before anyone reads them as current.
 - **`COOKIE_SECURE=false` on a publicly-routable IP** (`feature-017`, 2026-08-10) — session cookies
   (the entire auth boundary now, not one of two as when Supabase also existed) travel in plaintext
-  over `http://167.233.141.50:3000`, the O5-decided default-open self-host path. Not a new exposure
+  over `http://<vps-ip>:3000`, the O5-decided default-open self-host path. Not a new exposure
   mechanism (the prior Supabase Bearer token traveled the same plaintext path), but the blast
   radius of a successful interception is higher now — a stolen cookie is a full replayable session,
   not a per-call token. Founder-accepted for now per the O5 decision; revisit if/when that's
@@ -83,7 +83,7 @@ The founder decided to pivot WealthSignal from a hosted, paid, multi-tenant SaaS
 ## Next major milestones (in order)
 
 *Renumbered 2026-08-06 into one flat sequence — each step below is its own gate, not a bundle.
-This VM (`167.233.141.50`, on Hetzner) is confirmed as the founder's actual live instance, not just
+This VM (`<vps-ip>`, on Hetzner) is confirmed as the founder's actual live instance, not just
 a build/reference box, which is why operational hardening (1–4) now leads. Triggered by a real
 incident this week: BSI/CERT-Bund flagged the self-host sandbox Postgres container publicly
 exposed on `0.0.0.0:5432`, fixed same day by rebinding to `127.0.0.1`. See `FEATURE-BACKLOG.md`
@@ -148,7 +148,7 @@ exactly as CEO-decided (2026-07-30):
 Implemented directly by Claude (not the assigned Gemini/Qwen pipeline — both hit unrelated tooling
 failures, founder-directed fallback; see `.ai-sdlc/artifacts/feature-017/`). One accepted, explicit
 open item: `COOKIE_SECURE=false` means session cookies travel in plaintext over the public IP path
-(`167.233.141.50:3000`) — consequence of the O5 out-of-the-box decision, not an oversight, logged
+(`<vps-ip>:3000`) — consequence of the O5 out-of-the-box decision, not an oversight, logged
 in the tech-debt section above.
 
 ### 6. Domain + HTTPS reassessment (formerly V2) — ✅ decided 2026-08-14: Tailscale-only, no domain

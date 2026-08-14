@@ -60,7 +60,7 @@ This is `O3` in `docs/product/FEATURE-BACKLOG.md` / step 3 in `docs/product/ROAD
 operational hardening sequence (Operational Hardening — Personal Instance, added 2026-08-06).
 
 Background:
-- This VM (`167.233.141.50`, Hetzner) is the founder's actual live personal instance of
+- This VM (`<vps-ip>`, Hetzner) is the founder's actual live personal instance of
   WealthSignal, not a build/reference box (`[[this-vm-is-the-production-vps]]`).
 - Today, backend (`uvicorn`) and frontend (`next start`) are started via the project `Makefile`
   (`make backend`, `make frontend` / `make dev`) as bare `nohup` background processes:

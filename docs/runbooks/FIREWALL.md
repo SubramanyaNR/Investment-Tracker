@@ -1,6 +1,6 @@
 # Runbook — host firewall (`ufw` + `ufw-docker`)
 
-> Status: **live** on the production VPS (`167.233.141.50`). Implements roadmap `O2` /
+> Status: **live** on the production VPS (`<vps-ip>`). Implements roadmap `O2` /
 > `feature-018`. See `.ai-sdlc/artifacts/feature-018/` for the full planning/QA record.
 
 ## What's in place
@@ -36,7 +36,7 @@ reboot.
 
 From **outside** the VM:
 ```bash
-nmap -p 22,3000,5432,5433 167.233.141.50
+nmap -p 22,3000,5432,5433 <vps-ip>
 # expect: 22 open, 3000 open, 5432 closed/filtered, 5433 closed/filtered
 ```
 

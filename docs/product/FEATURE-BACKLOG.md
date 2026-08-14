@@ -181,7 +181,7 @@ replaced it (self-host Docker packaging, no domain/CI-CD/Ansible requirement).
 ## Operational Hardening — Personal Instance (added 2026-08-06)
 *Triggered by a real incident: BSI/CERT-Bund flagged the self-host sandbox Postgres container
 publicly exposed on `0.0.0.0:5432` (fixed same day, rebound to `127.0.0.1`). Confirmed this
-Hetzner VM (`167.233.141.50`) is the founder's actual live instance, not just a build box — these
+Hetzner VM (`<vps-ip>`) is the founder's actual live instance, not just a build box — these
 are current priority, ahead of the auth rewrite (Phase 2).*
 
 | ID | Feature | Status | Notes |

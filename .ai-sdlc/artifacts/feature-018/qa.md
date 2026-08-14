@@ -47,7 +47,7 @@ were blocked by Claude Code's auto-mode permission classifier when attempted in-
 
 ## Not run — needs access this session doesn't have
 
-- **External scan** (`nmap -p 22,3000,5432,5433 167.233.141.50` from a host outside the VM) —
+- **External scan** (`nmap -p 22,3000,5432,5433 <vps-ip>` from a host outside the VM) —
   can't be run from inside the VM itself (would only prove loopback reachability, not what the
   public internet sees). Needs to be run from your own machine or another external host.
 - **Tailscale reachability check** — needs the founder's phone (on the tailnet) hitting the

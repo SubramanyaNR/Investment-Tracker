@@ -1,6 +1,6 @@
 # Runbook — production deploy (VPS)
 
-> Status: **live**. WealthSignal runs self-hosted on a single VPS (`167.233.141.50`) as an
+> Status: **live**. WealthSignal runs self-hosted on a single VPS (`<vps-ip>`) as an
 > open-source, single-user app (MIT license, `architecture-002`) — not the paid multi-tenant SaaS
 > this doc originally described. There is no Supabase, no OAuth, no signup flow, no RLS, no
 > per-user billing. Deploying/redeploying infra changes is still a **gated** action — get CEO
@@ -47,7 +47,7 @@ auth provider. Password reset is **admin-only**: edit `.env`/DB directly and res
 ### `COOKIE_SECURE` — accepted trade-off, not an oversight
 Defaults to `false` so login works over plain HTTP out of the box (zero-setup self-host
 `docker-compose up`). This means session cookies travel unencrypted over
-`http://167.233.141.50:3000` today — a conscious, founder-accepted trade (O5 decision), not a
+`http://<vps-ip>:3000` today — a conscious, founder-accepted trade (O5 decision), not a
 gap. Set `COOKIE_SECURE=true` once serving behind real HTTPS (e.g. a Tailscale URL or a domain +
 reverse proxy).
 

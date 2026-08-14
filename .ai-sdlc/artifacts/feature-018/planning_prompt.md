@@ -60,7 +60,7 @@ This is `O2` in `docs/product/FEATURE-BACKLOG.md` / step 2 in `docs/product/ROAD
 operational hardening sequence (Operational Hardening — Personal Instance, added 2026-08-06).
 
 Background:
-- This VM (`167.233.141.50`, Hetzner) is the founder's actual live personal instance of
+- This VM (`<vps-ip>`, Hetzner) is the founder's actual live personal instance of
   WealthSignal, not a build/reference box (`[[this-vm-is-the-production-vps]]`).
 - Triggering incident: BSI/CERT-Bund flagged the self-host sandbox Postgres container publicly
   exposed on `0.0.0.0:5432` on 2026-08-06, fixed same day by rebinding to `127.0.0.1`. Nothing
