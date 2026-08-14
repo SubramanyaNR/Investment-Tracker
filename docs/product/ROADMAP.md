@@ -166,17 +166,28 @@ The self-hosted Postgres started fresh with an empty schema instead. The old Sup
 data is untouched, still sitting there, abandoned rather than migrated or deleted — available later
 if anyone ever wants to look at it, but nothing depends on it anymore.
 
-### 8. Self-host packaging & onboarding docs  ← current priority
-- Merge/replace `docker-compose.yml` with the self-host Postgres service for a one-command
-  `docker-compose up` experience
-- README / setup guide for a self-hoster (someone technical enough to clone a repo and run
-  docker-compose, not a public SaaS audience)
-- License file (MIT, per CEO decision)
-- **Out-of-the-box access requirement (decided 2026-08-10):** the app must be reachable over plain
-  `localhost`/LAN with zero required setup beyond `docker-compose up` — no Tailscale, nginx, or TLS
-  config as a prerequisite to a working install. This is why port 3000 stays open by default (see
-  step 4's note); forked/self-hosted instances decide their own exposure/hardening independently of
-  what the founder does on their own personal instance.
+### 8. Self-host packaging & onboarding docs — ✅ done 2026-08-14 (`29f0abc`)
+- `docker-compose.yml` merged into a working one-command stack: `postgres` + `backend` (runs
+  Alembic migrations on boot, then uvicorn) + `frontend`, verified end-to-end (migrate → bootstrap
+  admin → login → authenticated dashboard request, all through the container network) — not just
+  reviewed on paper.
+- `README.md` added — quick start, features, license, pointer to `docs/INDEX.md`.
+- `LICENSE` (MIT) — done earlier, `dc692a6`.
+- **Out-of-the-box access requirement (decided 2026-08-10):** satisfied — `docker compose up -d
+  --build` reaches the app over plain `localhost` with zero required setup, no Tailscale/nginx/TLS
+  config as a prerequisite. Port 3000 stays open by default (see step 4's note); forked/self-hosted
+  instances decide their own exposure/hardening independently of what the founder does on their own
+  instance.
+- Two real bugs found and fixed during that end-to-end verification (not doc-only work): the
+  frontend's `/api` rewrite was hardcoded to `127.0.0.1:8000` (only works when frontend/backend
+  share a host — broke under separate containers) and had to become a build-time
+  `BACKEND_INTERNAL_URL` arg, since Next.js bakes `rewrites()` into `routes-manifest.json` at
+  `next build`, not `next start`; the frontend Dockerfile's `output: "standalone"` runner was
+  swapped for plain `npm start`, matching the systemd-managed path instead of diverging from it.
+- `.env.example` rewritten to match the current bcrypt/HS256 auth model (previously still described
+  removed Supabase JWKS/anon-key config — anyone following it would have failed immediately).
+- Founder's real VPS IP and personal email scrubbed from 32 tracked docs/AI-SDLC artifacts ahead of
+  the repo going public.
 
 ### 9. VISION.md rewrite — ✅ done 2026-08-13 (`dc692a6`)
 Explicit, CEO-reviewed deliverable — repositioned from "₹99/mo paid SaaS, 8-crore TAM" to
