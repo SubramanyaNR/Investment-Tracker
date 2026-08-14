@@ -38,11 +38,6 @@ The founder decided to pivot WealthSignal from a hosted, paid, multi-tenant SaaS
   (`docker-compose.selfhost.yml`), confirmed the existing Alembic chain applies cleanly to vanilla
   Postgres with no Supabase-specific dependency. Isolated from the live app; nothing wired up yet.
 
-### Transitional / being replaced
-- **Deploy model** — backend/frontend currently run as manual `nohup` processes on this host, no
-  systemd unit, no process supervisor, no nginx/SSL/domain, no CI/CD, no cron backups. This will be
-  reworked as part of the self-host packaging phase, not as a hosted-SaaS VPS cutover.
-
 ### Remaining known issues / tech debt
 - No "last updated" timestamp on prices in the UI
 - `api.mfapi.in` unreachable from this VM (egress issue, unrelated to the pivot) — check before
@@ -94,7 +89,7 @@ incident this week: BSI/CERT-Bund flagged the self-host sandbox Postgres contain
 exposed on `0.0.0.0:5432`, fixed same day by rebinding to `127.0.0.1`. See `FEATURE-BACKLOG.md`
 `O1`–`O4` for the same items tracked with IDs.*
 
-### 1. Backups — local ✅ done 2026-08-10, offsite still open  ← current priority
+### 1. Backups — local ✅ done 2026-08-10, offsite still open
 Local half done (`feature-016`): cron `make backup` at 3am, atomic gzipped `pg_dump` to
 `./backups/`, integrity-checked (gzip test + min-size check), 30-day retention, self-healing
 orphan-tmp-file cleanup. See `docs/runbooks/BACKUP-RESTORE.md`.
@@ -112,9 +107,11 @@ Docker-published ports can't silently bypass `ufw` the way the triggering incide
 `docs/runbooks/FIREWALL.md`. Two acceptance checks (Docker-recreate regression, external scan)
 still need the founder to run directly — see tech-debt above.
 
-### 3. Process supervision
-Backend (`uvicorn`) and frontend (`next start`) currently run as bare `nohup` processes with no
-systemd unit; a reboot leaves the app down with no auto-restart. Add systemd units for both.
+### 3. Process supervision ✅ done 2026-08-14
+Backend (`uvicorn`) and frontend (`next start`) moved off bare `nohup` onto systemd units
+(`it-backend.service`/`it-frontend.service`, `feature-019`) — both survive reboot and restart on
+failure. `make backend`/`make frontend`/`make dev` now drive `systemctl` instead of managing
+PID files. See `docs/runbooks/PROCESS-SUPERVISION.md`.
 
 ### 4. Tailscale for private HTTPS access — ✅ done 2026-08-10
 Real, trusted HTTPS for personal access (VM + founder's phone, both joined to the tailnet), with
@@ -154,12 +151,11 @@ open item: `COOKIE_SECURE=false` means session cookies travel in plaintext over 
 (`167.233.141.50:3000`) — consequence of the O5 out-of-the-box decision, not an oversight, logged
 in the tech-debt section above.
 
-### 6. Domain + HTTPS reassessment (formerly V2)
-Not cancelled — reconsidered 2026-08-06. The founder is keeping this Hetzner box as their live
-personal instance and wants HTTPS for it; step 4 (Tailscale) may already satisfy that. Once
-Tailscale is in place, explicitly decide whether a public domain + Nginx + Certbot is still needed
-(e.g. to share access beyond the founder) or whether Tailscale-only access is sufficient for a
-single-user deployment. Only build the Nginx/Certbot path if the answer is yes.
+### 6. Domain + HTTPS reassessment (formerly V2) — ✅ decided 2026-08-14: Tailscale-only, no domain
+Founder decided against a public domain — cost (can't afford a domain name right now), and
+Tailscale (step 4) already provides real, trusted HTTPS for personal access. Nginx + Certbot path
+is **not being built**. Revisit only if the founder later wants to share access beyond themselves
+or the cost calculus changes.
 
 ### 7. Data migration — architecture-002 Phase 3 — ❌ not done, superseded 2026-08-10
 Originally scoped to move the founder's real Supabase portfolio data onto the self-hosted Postgres,
@@ -170,7 +166,7 @@ The self-hosted Postgres started fresh with an empty schema instead. The old Sup
 data is untouched, still sitting there, abandoned rather than migrated or deleted — available later
 if anyone ever wants to look at it, but nothing depends on it anymore.
 
-### 8. Self-host packaging & onboarding docs
+### 8. Self-host packaging & onboarding docs  ← current priority
 - Merge/replace `docker-compose.yml` with the self-host Postgres service for a one-command
   `docker-compose up` experience
 - README / setup guide for a self-hoster (someone technical enough to clone a repo and run
@@ -182,9 +178,9 @@ if anyone ever wants to look at it, but nothing depends on it anymore.
   step 4's note); forked/self-hosted instances decide their own exposure/hardening independently of
   what the founder does on their own personal instance.
 
-### 9. VISION.md rewrite
-Explicit, CEO-reviewed deliverable — reposition from "₹99/mo paid SaaS, 8-crore TAM" to
-open-source/self-hosted/single-user. Not to be silently edited.
+### 9. VISION.md rewrite — ✅ done 2026-08-13 (`dc692a6`)
+Explicit, CEO-reviewed deliverable — repositioned from "₹99/mo paid SaaS, 8-crore TAM" to
+open-source/self-hosted/single-user. Closed out as part of `architecture-002`.
 
 ### 10. Test suite completion
 - Integration tests for `recalculate_crypto_valuations()` and `recalculate_mf_valuations()`
