@@ -48,12 +48,35 @@ docker compose up -d --build
 
 The app is now running at `http://localhost:3000`.
 
-Login is **disabled by default** (`AUTH_ENABLED=false`) — fine for a single local device, and
-you'll see a warning banner reminding you of that. If this instance is reachable by more than
-just you (a VPS, a cloud box, Tailscale), run `make reset-admin-password` to set real credentials
-(the `ADMIN_PASSWORD` in `.env` is only a placeholder), then set `AUTH_ENABLED=true` and restart.
-
 To stop it: `docker compose down` (add `-v` to also wipe the database volume).
+
+## Authentication
+
+Login is **disabled by default** (`AUTH_ENABLED=false`) — every request acts as the single admin
+user, no password needed. Fine for a single local device; a warning banner is shown in the app
+the whole time this is off, since anyone who can reach the address has full access.
+
+If this instance is reachable by more than just you (a VPS, a cloud box, Tailscale, etc.), enable
+login:
+
+1. **Set a real password first** — the `ADMIN_PASSWORD` in `.env` is only a placeholder. Run:
+   ```bash
+   make reset-admin-password
+   ```
+   It prompts interactively for a new email (optional, keeps the current one if left blank) and a
+   new password (hidden input, confirmed twice). This is also how you change credentials later —
+   editing `ADMIN_EMAIL`/`ADMIN_PASSWORD` in `.env` after first boot has no effect.
+
+2. **Turn login on** — set in `.env`:
+   ```
+   AUTH_ENABLED=true
+   ```
+
+3. **Restart** the backend (`docker compose restart backend`, or `make backend` if running via
+   systemd) and log in with the credentials you just set.
+
+To go back to no-login mode, set `AUTH_ENABLED=false` and restart again — none of your data is
+affected either way, since there's only ever the one admin account regardless of the setting.
 
 ## Running without Docker
 
