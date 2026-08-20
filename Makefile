@@ -4,7 +4,7 @@ FRONTEND := frontend
 API := http://127.0.0.1:8000
 WEB := http://127.0.0.1:3000
 
-.PHONY: help backend stop-backend build frontend stop-frontend dev restart stop logs validate migrate test test-int install-services
+.PHONY: help backend stop-backend build frontend stop-frontend dev restart stop logs validate migrate test test-int install-services reset-admin-password
 
 help: ## list targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-14s\033[0m %s\n",$$1,$$2}'
@@ -47,6 +47,9 @@ validate: ## quick health check of running stack
 
 migrate: ## alembic autogenerate+upgrade; usage: make migrate m="message"
 	cd $(BACKEND) && source .venv/bin/activate && ./migrate.sh "$(m)"
+
+reset-admin-password: ## interactively reset the admin email/password + revoke active sessions
+	cd $(BACKEND) && source .venv/bin/activate && python3.11 -m scripts.reset_admin_password
 
 test: ## run backend unit tests (fast, no Docker)
 	cd $(BACKEND) && .venv/bin/python -m pytest -q -m "not integration"

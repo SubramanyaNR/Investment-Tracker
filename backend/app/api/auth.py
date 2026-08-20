@@ -52,6 +52,16 @@ async def bootstrap_admin_user() -> None:
         log_event("auth.bootstrap.created_admin", email=settings.admin_email)
 
 
+@router.get("/status")
+async def auth_status():
+    """Public (unauthenticated) — the frontend needs this pre-login to decide
+    whether to show the disabled-auth warning banner. Deliberately not gated:
+    it discloses only whether *this* instance requires a password, no more than
+    the banner itself would already reveal once rendered.
+    """
+    return {"auth_enabled": settings.auth_enabled}
+
+
 @router.post("/login")
 async def login(payload: LoginRequest, request: Request, response: Response):
     ip = client_ip(request)

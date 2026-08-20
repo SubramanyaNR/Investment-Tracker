@@ -52,3 +52,13 @@ Replace Supabase Auth with self-issued auth against the local Postgres `users` t
 - `COOKIE_SECURE=false` by default means session cookies can be read by anyone with network access
   to an unencrypted HTTP session for whoever hasn't put HTTPS in front of their instance — a
   conscious, documented trade for zero-setup self-host onboarding, not an oversight.
+
+## Amendment (secure-001 / feature-020, 2026-08-20): auth can be disabled entirely
+
+Added `AUTH_ENABLED` (default `false`), letting login be skipped entirely for single-device
+self-host convenience — a further, deliberate reduction of this ADR's auth boundary, going beyond
+`COOKIE_SECURE=false` to no credential check at all. Full design and threat model in
+`docs/architecture/AUTH.md` ("Auth-disable toggle"); the short version: every request resolves to
+the one bootstrapped admin user (never anonymous), there is no in-app way to flip the flag (env +
+restart only, to avoid a pre-auth-reachable control that could disable its own gate), and a warning
+banner shows on every page whenever auth is off, with no default able to silently suppress it.

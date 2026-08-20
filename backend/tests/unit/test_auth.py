@@ -48,68 +48,68 @@ def test_verify_malformed_hash_fails_closed():
 
 # ── Access token (HS256) ──────────────────────────────────────────────────────
 
-def _expect_401(token):
+async def _expect_401(token):
     with pytest.raises(HTTPException) as ei:
-        get_current_user_id(access_token=token)
+        await get_current_user_id(access_token=token)
     assert ei.value.status_code == 401
 
 
-def test_valid_access_token_returns_sub():
+async def test_valid_access_token_returns_sub():
     token = create_access_token(VALID_SUB)
-    assert get_current_user_id(access_token=token) == VALID_SUB
+    assert await get_current_user_id(access_token=token) == VALID_SUB
 
 
-def test_missing_cookie_401():
-    _expect_401(None)
+async def test_missing_cookie_401():
+    await _expect_401(None)
 
 
-def test_expired_token_401():
+async def test_expired_token_401():
     now = datetime.datetime.now(UTC)
     claims = {"sub": str(VALID_SUB), "iat": now, "exp": now - datetime.timedelta(seconds=1)}
     token = jwt.encode(claims, settings.jwt_secret, algorithm="HS256")
-    _expect_401(token)
+    await _expect_401(token)
 
 
-def test_missing_sub_401():
+async def test_missing_sub_401():
     now = datetime.datetime.now(UTC)
     claims = {"iat": now, "exp": now + datetime.timedelta(hours=1)}
     token = jwt.encode(claims, settings.jwt_secret, algorithm="HS256")
-    _expect_401(token)
+    await _expect_401(token)
 
 
-def test_non_uuid_sub_401():
+async def test_non_uuid_sub_401():
     now = datetime.datetime.now(UTC)
     claims = {"sub": "not-a-uuid", "iat": now, "exp": now + datetime.timedelta(hours=1)}
     token = jwt.encode(claims, settings.jwt_secret, algorithm="HS256")
-    _expect_401(token)
+    await _expect_401(token)
 
 
-def test_wrong_secret_401():
+async def test_wrong_secret_401():
     now = datetime.datetime.now(UTC)
     claims = {"sub": str(VALID_SUB), "iat": now, "exp": now + datetime.timedelta(hours=1)}
     token = jwt.encode(claims, "a-completely-different-secret", algorithm="HS256")
-    _expect_401(token)
+    await _expect_401(token)
 
 
-def test_alg_none_401():
+async def test_alg_none_401():
     now = datetime.datetime.now(UTC)
     claims = {"sub": str(VALID_SUB), "iat": now, "exp": now + datetime.timedelta(hours=1)}
     token = jwt.encode(claims, "", algorithm="none")
-    _expect_401(token)
+    await _expect_401(token)
 
 
-def test_tampered_payload_401():
+async def test_tampered_payload_401():
     token = create_access_token(VALID_SUB)
     head, payload, sig = token.split(".")
     payload = ("A" if payload[0] != "A" else "B") + payload[1:]
-    _expect_401(f"{head}.{payload}.{sig}")
+    await _expect_401(f"{head}.{payload}.{sig}")
 
 
-def test_malformed_token_401():
-    _expect_401("not.a.valid.jwt")
+async def test_malformed_token_401():
+    await _expect_401("not.a.valid.jwt")
 
 
-def test_old_supabase_style_es256_token_rejected():
+async def test_old_supabase_style_es256_token_rejected():
     """A token from the old Supabase Auth path (ES256, different issuer/audience
     shape) must not be accepted post-cutover — proves the old path is gone, not
     just that a new one was added alongside it."""
@@ -125,7 +125,7 @@ def test_old_supabase_style_es256_token_rejected():
         "exp": now + datetime.timedelta(hours=1),
     }
     token = jwt.encode(claims, priv, algorithm="ES256")
-    _expect_401(token)
+    await _expect_401(token)
 
 
 # ── Refresh token ──────────────────────────────────────────────────────────
@@ -182,3 +182,97 @@ def test_csrf_mismatched_values_rejected():
 
 def test_csrf_matching_values_accepted():
     csrf_check("POST", "/assets", True, "matching-value", "matching-value")  # no raise
+
+
+# ── AUTH_ENABLED=false bypass (secure-001 / feature-020) ────────────────────
+# get_current_user_id must always resolve to the one bootstrapped admin user
+# when auth is disabled — never null, never whatever the caller supplies.
+
+BOOTSTRAPPED_ADMIN = uuid.UUID("99999999-9999-9999-9999-999999999999")
+
+
+class _FakeAdminResult:
+    def __init__(self, row):
+        self._row = row
+
+    def first(self):
+        return self._row
+
+
+class _FakeAdminSession:
+    def __init__(self, row):
+        self._row = row
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *_exc):
+        return False
+
+    async def execute(self, *_args, **_kwargs):
+        return _FakeAdminResult(self._row)
+
+
+@pytest.fixture(autouse=True)
+def _reset_disabled_mode_cache():
+    """The bypass caches the resolved admin id at module scope — reset it around
+    every test in this file so tests don't leak state into each other."""
+    auth_module._disabled_mode_admin_id = None
+    yield
+    auth_module._disabled_mode_admin_id = None
+
+
+def _patch_admin_session(monkeypatch, row):
+    import app.db.session as db_session
+    monkeypatch.setattr(db_session, "AdminSessionLocal", lambda: _FakeAdminSession(row))
+
+
+async def test_auth_disabled_resolves_to_bootstrapped_admin(monkeypatch):
+    monkeypatch.setattr(settings, "auth_enabled", False)
+    _patch_admin_session(monkeypatch, (BOOTSTRAPPED_ADMIN,))
+    assert await get_current_user_id(access_token=None) == BOOTSTRAPPED_ADMIN
+
+
+async def test_auth_disabled_ignores_client_supplied_token(monkeypatch):
+    """A forged/valid-looking cookie claiming a different user must be ignored
+    entirely — the disabled-mode identity always comes from the DB lookup, never
+    from anything the caller sends."""
+    monkeypatch.setattr(settings, "auth_enabled", False)
+    _patch_admin_session(monkeypatch, (BOOTSTRAPPED_ADMIN,))
+    forged = create_access_token(uuid.UUID("22222222-2222-2222-2222-222222222222"))
+    assert await get_current_user_id(access_token=forged) == BOOTSTRAPPED_ADMIN
+
+
+async def test_auth_disabled_no_user_row_raises_500(monkeypatch):
+    monkeypatch.setattr(settings, "auth_enabled", False)
+    _patch_admin_session(monkeypatch, None)
+    with pytest.raises(HTTPException) as ei:
+        await get_current_user_id(access_token=None)
+    assert ei.value.status_code == 500
+
+
+async def test_auth_disabled_caches_after_first_lookup(monkeypatch):
+    monkeypatch.setattr(settings, "auth_enabled", False)
+    calls = {"n": 0}
+
+    class _CountingSession(_FakeAdminSession):
+        async def execute(self, *args, **kwargs):
+            calls["n"] += 1
+            return await super().execute(*args, **kwargs)
+
+    import app.db.session as db_session
+    monkeypatch.setattr(db_session, "AdminSessionLocal", lambda: _CountingSession((BOOTSTRAPPED_ADMIN,)))
+
+    await get_current_user_id(access_token=None)
+    await get_current_user_id(access_token=None)
+    assert calls["n"] == 1
+
+
+async def test_auth_enabled_still_requires_valid_token_when_flag_is_false_elsewhere(monkeypatch):
+    """Sanity check the flag actually gates the branch: with auth_enabled=True
+    (the test-suite default), a missing cookie still 401s exactly as before,
+    even though the disabled-mode code path now exists."""
+    monkeypatch.setattr(settings, "auth_enabled", True)
+    with pytest.raises(HTTPException) as ei:
+        await get_current_user_id(access_token=None)
+    assert ei.value.status_code == 401

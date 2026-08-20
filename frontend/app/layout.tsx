@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/components/AuthProvider";
+import AuthDisabledBanner from "@/components/AuthDisabledBanner";
 
 export const metadata: Metadata = {
   title: "Investment Tracker",
@@ -27,6 +28,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <ThemeProvider>
+          <AuthDisabledBanner />
           <AuthProvider>{children}</AuthProvider>
         </ThemeProvider>
       </body>

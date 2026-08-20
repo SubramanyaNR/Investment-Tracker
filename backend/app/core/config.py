@@ -40,6 +40,15 @@ class Settings(BaseSettings):
     # brute-force insurance now that there's no email-based password reset.
     rl_login_attempts: int = 5
 
+    # ── secure-001 / feature-020: auth-toggle ────────────────────────────────
+    # Off by default (local/self-host convenience) — every request resolves to
+    # the single bootstrapped admin user with no credential check. The frontend
+    # shows a persistent warning whenever this is false. Deliberately no
+    # local/hosted distinction in the warning: deployment topology (Tailscale,
+    # reverse proxies, etc.) is too ambiguous to word the warning around
+    # correctly, so it's always the strongest wording, full stop.
+    auth_enabled: bool = False
+
     # ── A5: market caching + rate limiting ──────────────────────────────────
     rate_limit_enabled: bool = True
     # Backend binds 127.0.0.1 (reachable only via the proxy), so a proxy-set

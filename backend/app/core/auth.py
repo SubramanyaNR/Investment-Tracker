@@ -42,7 +42,35 @@ def create_access_token(user_id: uuid.UUID) -> str:
     return jwt.encode(claims, settings.jwt_secret, algorithm="HS256")
 
 
-def get_current_user_id(access_token: str | None = Cookie(default=None)) -> uuid.UUID:
+_disabled_mode_admin_id: uuid.UUID | None = None
+
+
+async def _resolve_disabled_mode_user_id() -> uuid.UUID:
+    """AUTH_ENABLED=false: every request resolves to the single bootstrapped
+    admin user — never null, never client-supplied. Cached after the first
+    lookup since there is exactly one user row for the life of a single-user
+    deployment; avoids a DB round trip on every request."""
+    global _disabled_mode_admin_id
+    if _disabled_mode_admin_id is not None:
+        return _disabled_mode_admin_id
+
+    # Local imports: core/auth.py otherwise has no DB dependency, and this path
+    # only ever runs when auth is disabled.
+    from sqlalchemy import select
+    from app.db.models import User
+    from app.db.session import AdminSessionLocal
+
+    async with AdminSessionLocal() as session:
+        row = (await session.execute(select(User.id).limit(1))).first()
+    if row is None:
+        raise HTTPException(status_code=500, detail="Auth is disabled but no admin user exists yet")
+    _disabled_mode_admin_id = row[0]
+    return _disabled_mode_admin_id
+
+
+async def get_current_user_id(access_token: str | None = Cookie(default=None)) -> uuid.UUID:
+    if not settings.auth_enabled:
+        return await _resolve_disabled_mode_user_id()
     if access_token is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
     try:

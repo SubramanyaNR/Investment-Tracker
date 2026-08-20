@@ -2,9 +2,22 @@
 
 Custom auth (architecture-002 Phase 2, `feature-017`) has no email-based password reset — there's
 no mail service in a self-hosted single-user install, and none is planned. If you forget the admin
-password or the login path breaks, recovery is a direct DB edit, not a UI flow.
+password or the login path breaks, recovery is `make reset-admin-password`, not a UI flow.
 
-## Reset the password directly
+Note: login can also just be off. Check `AUTH_ENABLED` in `backend/.env` first — if it's `false`,
+there's no password to forget; the app is running open by design (see `docs/architecture/AUTH.md`,
+"Auth-disable toggle").
+
+## Reset the password
+
+Run `make reset-admin-password` — it prompts interactively for a new password
+(and optionally a new email), updates the single admin row in place, and
+revokes all outstanding refresh tokens. No restart needed; the change takes
+effect immediately. This is now the only supported way to change admin
+credentials — see `docs/architecture/AUTH.md` ("Auth-disable toggle") for why.
+
+<details>
+<summary>Manual fallback (direct DB edit, if the script can't run)</summary>
 
 1. Generate a new bcrypt hash for the password you want:
    ```bash
@@ -19,6 +32,8 @@ password or the login path breaks, recovery is a direct DB edit, not a UI flow.
      "UPDATE users SET password_hash = '<hash from step 1>';"
    ```
 3. Log in with the new password. No restart needed — the change takes effect immediately.
+
+</details>
 
 ## If the `users` table is empty (bootstrap never ran, or was wiped)
 

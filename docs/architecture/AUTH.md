@@ -53,6 +53,52 @@ independent of RLS. Migrations + the scheduler use a separate **admin** connecti
   `docker-compose up`, zero setup) — set `true` only when real HTTPS is actually in front (see
   `decisions/0005-custom-auth-single-user.md`).
 
+## Auth-disable toggle (secure-001 / feature-020)
+
+- **`AUTH_ENABLED`** (default `false`): when off, `get_current_user_id`
+  (`backend/app/core/auth.py`) skips the JWT check entirely but still resolves
+  every request to the single bootstrapped admin user, fetched from the DB and
+  cached in memory — never null, never client-supplied, never a second user.
+  This is the single choke point; no router has its own auth-bypass logic.
+- **`GET /auth/status`** (public, unauthenticated) returns `{auth_enabled}` so
+  the frontend can render a warning banner even before login. It's
+  intentionally public — it discloses only what the banner itself already
+  would once rendered.
+- **The banner shows whenever `AUTH_ENABLED=false`, full stop**, with a single
+  fixed wording — no local-vs-hosted variant. Two earlier designs were tried
+  and rejected: first, a `deployment_context` var that could suppress the
+  banner entirely on `local` (rejected as a double-negative gap — forgetting
+  to set *both* vars correctly would give zero warning); then a version where
+  `deployment_context` only softened the wording rather than suppressing it
+  (rejected too — deployment topology, e.g. Tailscale-only access, is
+  genuinely ambiguous, so there's no wording distinction worth making;
+  always showing the strongest copy is simpler and never wrong).
+- **No in-app write path exists to toggle `AUTH_ENABLED`.** It's an env var +
+  restart, on purpose — a control that could disable the only access gate,
+  reachable from the same surface that gate is supposed to protect, is a
+  tamper/persistence risk. The homescreen only *displays* current state.
+- **Credential changes go through `make reset-admin-password` only** —
+  updates the existing single user row in place (email/password) and revokes
+  every outstanding refresh token. `ADMIN_EMAIL`/`ADMIN_PASSWORD` in `.env`
+  remain first-boot-only, unchanged from before this work.
+- **Deliberately not added: `token_version`/access-token revocation.** The
+  original security remediation plan (`secure-001`) called for a token-version
+  column checked on every request so a password reset would invalidate
+  already-issued access tokens immediately. Implemented instead: `reset-admin-
+  password` revokes all refresh tokens (existing mechanism, no schema change),
+  bounded by the access token's existing 15-minute TTL — the same exposure
+  window a normal logout already has today, since logout doesn't invalidate a
+  still-valid access token either. Chosen over a schema migration + per-
+  request DB check because it preserves the documented "pure local
+  verification, no network call" property of access-token checks, which a
+  `token_version` check would have broken. Revisit if the 15-minute window
+  proves too wide in practice.
+- **Full data continuity across disable → enable is guaranteed by construction**:
+  `bootstrap_admin_user()` creates the one user row on the very first startup
+  regardless of `AUTH_ENABLED`, and the disabled-mode bypass resolves to that
+  same row — so data added while disabled is already under the same user_id
+  you'll log into once auth is turned on.
+
 ## Known open items
 - No brute-force lockout beyond the per-IP rate limit on `/auth/login` (`rl_login_attempts`,
   default 5/60s) — adequate for a single-user personal instance, revisit if that changes.

@@ -244,6 +244,15 @@ export async function refreshSession(): Promise<boolean> {
   return res.ok;
 }
 
+export type AuthStatus = { auth_enabled: boolean };
+
+// Unauthenticated by design — must work pre-login so the disabled-auth banner
+// can render even when there's no session yet.
+export async function getAuthStatus(): Promise<AuthStatus | null> {
+  const res = await fetch(`${API_BASE_URL}/auth/status`, { cache: "no-store" });
+  return res.ok ? res.json() : null;
+}
+
 // ── API functions ──────────────────────────────────────────────────────────
 
 export const getDashboard = () => get<{

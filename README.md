@@ -46,8 +46,12 @@ create your one admin account on first run only.
 docker compose up -d --build
 ```
 
-The app is now running at `http://localhost:3000`. Log in with the `ADMIN_EMAIL`/`ADMIN_PASSWORD`
-you set.
+The app is now running at `http://localhost:3000`.
+
+Login is **disabled by default** (`AUTH_ENABLED=false`) — fine for a single local device, and
+you'll see a warning banner reminding you of that. If this instance is reachable by more than
+just you (a VPS, a cloud box, Tailscale), run `make reset-admin-password` to set real credentials
+(the `ADMIN_PASSWORD` in `.env` is only a placeholder), then set `AUTH_ENABLED=true` and restart.
 
 To stop it: `docker compose down` (add `-v` to also wipe the database volume).
 
